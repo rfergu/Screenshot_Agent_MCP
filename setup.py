@@ -1,16 +1,21 @@
 from setuptools import setup, find_packages
+from pathlib import Path
+
+# Read requirements
+requirements_path = Path(__file__).parent / "requirements.txt"
+with open(requirements_path) as f:
+    requirements = [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
 setup(
     name="screenshot_organizer",
     version="0.1.0",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    install_requires=[
-        # Keep minimal here; use requirements.txt for development
-    ],
+    python_requires=">=3.11",
+    install_requires=requirements,
     entry_points={
         "console_scripts": [
-            "screenshot-organizer=src.__main__:main"
+            "screenshot-organizer=__main__:main"
         ]
     }
 )
