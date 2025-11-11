@@ -1,0 +1,29 @@
+processing:
+  ocr_min_words: 10
+  vision_timeout: 30
+  batch_size: 50
+
+organization:
+  base_folder: "~/Screenshots/organized"
+  categories:
+    - code
+    - errors
+    - documentation
+    - design
+    - communication
+    - memes
+    - other
+  keep_originals: true
+
+models:
+  phi3_vision:
+    max_tokens: 200
+    temperature: 0.3
+
+api:
+  openai_model: "gpt-4-turbo-preview"
+  max_context_length: 8000
+
+logging:
+  level: INFO
+  file: screenshot_organizer.log
