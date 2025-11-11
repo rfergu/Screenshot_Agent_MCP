@@ -1,4 +1,10 @@
-from src.utils import logger
+import sys
+from pathlib import Path
+
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from utils import logger
 
 
 def test_get_logger():
