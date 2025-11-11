@@ -3,7 +3,7 @@
 import tempfile
 import time
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from PIL import Image
@@ -104,6 +104,9 @@ class TestVisionPerformance:
     def test_vision_speed_target_2s(self, temp_screenshot):
         """Test vision processing meets <2s target (with mocked model)."""
         vision_processor = VisionProcessor()
+        
+        # Mock model loading to avoid ImportError
+        vision_processor.model = MagicMock()
 
         # Mock the vision model call
         with patch.object(vision_processor, "_call_model") as mock_model:

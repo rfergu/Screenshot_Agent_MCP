@@ -2,7 +2,7 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from PIL import Image
@@ -114,6 +114,9 @@ class TestVisionWorkflow:
         """Test vision model processing and response parsing."""
         vision_processor = VisionProcessor()
 
+        # Mock both model loading and model call to avoid ImportError
+        vision_processor.model = Mock()  # Pretend model is loaded
+        
         # Mock the model call to return a valid JSON response
         with patch.object(vision_processor, "_call_model") as mock_model:
             mock_model.return_value = '{"category": "design", "description": "Blue color palette", "filename": "blue_palette"}'
@@ -130,6 +133,9 @@ class TestVisionWorkflow:
     def test_vision_invalid_category_fallback(self, temp_screenshot):
         """Test vision processor handles invalid categories gracefully."""
         vision_processor = VisionProcessor()
+        
+        # Mock model loading to avoid ImportError
+        vision_processor.model = Mock()
 
         with patch.object(vision_processor, "_call_model") as mock_model:
             mock_model.return_value = '{"category": "invalid_cat", "description": "Test", "filename": "test"}'
@@ -276,6 +282,9 @@ class TestMCPToolHandlers:
     def test_analyze_screenshot_force_vision(self, temp_screenshot):
         """Test analyze_screenshot tool with force_vision=True."""
         handlers = MCPToolHandlers()
+        
+        # Mock model loading to avoid ImportError
+        handlers.vision_processor.model = Mock()
 
         with patch.object(handlers.vision_processor, "_call_model") as mock_model:
             mock_model.return_value = '{"category": "memes", "description": "Funny cat picture", "filename": "funny_cat"}'
