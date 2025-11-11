@@ -109,6 +109,16 @@
 
 ### Measurable Outcomes
 
+## Constitution Compliance (REQUIRED)
+
+All specs MUST include a Constitution Compliance section that references `.specify/memory/constitution.md` and clearly states:
+
+- Which Articles are relevant to this feature.
+- For each relevant Article: "Compliant" or "Non-compliant (DEVIATION)" with a short rationale.
+- Where a DEVIATION exists, link to the PR that documents the exception and the approver.
+
+This section is mandatory for review. Reviewers will not approve a spec until Constitution Compliance is completed and any DEVIATIONs have an assigned mitigation owner.
+
 - **SC-001**: [Measurable metric, e.g., "Users can complete account creation in under 2 minutes"]
 - **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
 - **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]

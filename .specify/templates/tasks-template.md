@@ -249,3 +249,26 @@ With multiple developers:
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
+
+## Constitution-Driven Tasks (REQUIRED CHECK)
+
+Per the project constitution (`.specify/memory/constitution.md`), cross-cutting obligations such as testing coverage, privacy review,
+security checks, and performance verification are mandatory where relevant. When generating `tasks.md` for a feature, include a top-level
+"Constitution-Driven Tasks" section that lists which constitutional obligations apply and concrete tasks to satisfy them.
+
+Minimum items to consider and include when applicable:
+
+- Testing Coverage: add tasks to meet Article III (e.g., unit tests, integration tests, coverage measurement).
+- Documentation: tasks to add/update docstrings, quickstart instructions, and spec links per Article III.
+- Security & Privacy: tasks to validate Article VI (data flow review, confirm no external image transmission, secrets handling).
+- Performance: tasks to benchmark and validate Article VII metrics when the feature touches performance-sensitive code.
+- Release/Versioning: tasks to follow the governance/versioning policy in Article X when the change affects governance or principles.
+
+For each constitutional task include:
+
+- Reference to the Article (e.g., Article VI)
+- Concrete acceptance criteria (what must be demonstrated)
+- Approval owner (who signs off)
+
+If any constitutional obligation cannot be met, mark it as DEVIATION and link to the PR that documents the exception and approver. Missing this section will
+block task review.

@@ -31,7 +31,22 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+**GATE (REQUIRED): Constitution Check — MUST be completed and approved before Phase 0 research.**
+
+Complete the table below for each Article in `.specify/memory/constitution.md`. For each Article list "PASS" if the plan complies, or "DEVIATION" with a one-line justification and a link to the pull request that documents the exception and approver.
+
+Example:
+
+| Article | Status | Justification / PR |
+|---------|--------|-------------------|
+| Article I: Core Principles | PASS | - |
+| Article II: Technical Standards | DEVIATION | Requires temporary exception for experimental dependency — see PR /issues/123 |
+
+Acceptance criteria:
+- All rows are completed and show PASS or a documented DEVIATION with an approver.
+- A maintainer must sign off in the linked PR for any DEVIATION.
+
+Re-check this section after Phase 1 design and update statuses; unresolved DEVIATIONs MUST include a mitigation plan.
 
 ## Project Structure
 
