@@ -4,7 +4,7 @@
 Screenshot Organizer with Local AI Processing
 
 ## Feature Description
-A terminal-based tool that intelligently organizes screenshots using local AI models (OCR and Phi-3 Vision), with Azure AI (Foundry or Azure OpenAI) orchestrating the conversation through Microsoft Agent Framework. The system uses embedded tool functions for screenshot processing and prioritizes local processing to maintain privacy and minimize costs.
+A terminal-based tool that intelligently organizes screenshots using local AI models (OCR and vision) with Microsoft Agent Framework orchestration. Supports dual-mode operation: local chat (Phi-3 Vision MLX) or remote chat (Azure OpenAI), both using the same embedded tool functions and Agent Framework interface.
 
 ## User Stories
 
@@ -41,12 +41,15 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 **So that** I can easily organize screenshots without memorizing commands
 
 **Acceptance Criteria:**
-- Azure AI models (via Foundry or Azure OpenAI) understand natural language requests
+- Supports both local (Phi-3) and remote (Azure OpenAI) chat modes
+- Both modes use Microsoft Agent Framework with same tool access
+- Natural language understanding for user requests
 - Provides helpful suggestions and clarifications
 - Explains what the tool is doing at each step
 - Offers to process individual files or batches
 - Remembers context within a session
-- Provides clear error messages when something fails
+- Clear error messages when operations fail
+- Displays current mode indicator when configured
 
 ### US-004: Organize and Rename Files
 **As a** user  
@@ -154,6 +157,17 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
   - Message formatting and API calls
   - Thread state management
 
+### FR-010: Dual-Mode Chat Support
+- Support both local (Phi-3 Vision MLX) and remote (Azure OpenAI) chat clients
+- Mode selection priority: CLI flag > environment variable > config file > default (remote)
+- Local mode: Phi-3 wrapper implementing Agent Framework ChatClient protocol
+- Remote mode: AzureOpenAIChatClient with Azure credentials
+- Unified AgentClient interface for both modes with same ChatAgent and tool list
+- Configuration via `config/config.yaml` for mode settings
+- CLI shows current mode indicator
+- Credential validation only required for remote mode
+- Include demo comparison utility for side-by-side mode comparison
+
 ## Non-Functional Requirements
 
 ### NFR-001: Performance
@@ -190,6 +204,9 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 - [x] Microsoft Agent Framework integration specified
 - [x] Tool function architecture defined
 - [x] Dual Azure endpoint support documented
+- [x] Hybrid local/remote architecture documented (FR-010)
+- [x] Mode selection priority clearly defined
+- [x] Demo comparison utility specified
 
 ## Open Questions & Clarifications
 
@@ -214,6 +231,9 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
    - Built-in thread persistence and tool orchestration
    - Still demonstrates clear tool abstraction through function interface
    - Future-ready for multi-agent patterns
+
+6. **Q: Why support both local (Phi-3) and remote (Azure OpenAI) modes?**
+   A: Demonstrates Agent Framework's backend-agnostic design and provides user choice between privacy/cost (local) vs capability (remote).
 
 ### Pending Clarifications
 - Exact format for renamed files (timestamp prefix?)
