@@ -20,15 +20,17 @@ AI-powered screenshot organization demonstrating production AI agent development
 
 **For Remote Mode (Production - Recommended):**
 - Python 3.11+
-- Azure OpenAI credentials (API key or Azure CLI)
+- Azure OpenAI or AI Foundry credentials ([Get credentials](https://ai.azure.com))
 - Tesseract OCR installed
 
-**For Local Mode (Testing Only):**
+**For Local Mode (Testing/Debugging Only):**
 - Python 3.11+
-- Azure AI Foundry CLI installed
-- Phi-4-mini model downloaded
+- Azure AI Foundry CLI ([Installation guide](https://learn.microsoft.com/azure/ai-foundry/cli/))
+- Phi-4-mini model (~2GB download)
 
 ### Installation
+
+#### Step 1: Core Setup (Required)
 
 ```bash
 # Clone the repository
@@ -41,16 +43,10 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
-
-# Install package in development mode
 pip install -e .
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
 ```
 
-### Install Tesseract OCR
+#### Step 2: Install Tesseract OCR
 
 **macOS:**
 ```bash
@@ -63,85 +59,86 @@ sudo apt-get install tesseract-ocr
 ```
 
 **Windows:**
-Download installer from: https://github.com/UB-Mannheim/tesseract/wiki
+Download from: https://github.com/UB-Mannheim/tesseract/wiki
+
+#### Step 3: Choose Your Mode
+
+**Option A: Remote Mode Setup (Recommended for Production)**
+
+1. Get Azure credentials from https://ai.azure.com or Azure Portal
+
+2. Set environment variables:
+```bash
+export AZURE_AI_CHAT_ENDPOINT=https://your-project.services.ai.azure.com/api/projects/your-project
+export AZURE_AI_MODEL_DEPLOYMENT=gpt-4o
+export AZURE_AI_CHAT_KEY=your_api_key
+```
+
+Supported endpoints:
+- AI Foundry: `https://xxx.services.ai.azure.com/api/projects/xxx`
+- Azure OpenAI: `https://xxx.cognitiveservices.azure.com`
+
+3. Run:
+```bash
+python -m src.cli_interface  # Remote is default
+```
+
+**Option B: Local Mode Setup (Testing/Debugging Only)**
+
+1. Install Azure AI Foundry CLI:
+
+**macOS:**
+```bash
+brew install azure/ai-foundry/foundry
+foundry --version  # Verify installation
+```
+
+**Linux/Windows:**
+See: https://learn.microsoft.com/azure/ai-foundry/cli/
+
+2. Download and setup Phi-4-mini:
+```bash
+# Download model (first time, ~2GB)
+foundry model get phi-4-mini
+
+# Start Foundry service
+foundry service start
+
+# Load the model
+foundry model load phi-4-mini
+
+# Verify it's running
+foundry service status
+# Should show: Service is running on http://127.0.0.1:<port>
+```
+
+3. Run (keep Foundry service running in separate terminal):
+```bash
+python -m src.cli_interface --local
+```
+
+**Note:** Local mode is for testing conversation flow only - no screenshot analysis or file organization capabilities.
 
 ### Basic Usage
 
-#### Interactive Chat Interface
+#### Interactive Chat (Remote Mode)
 
-**Remote Mode (Production - Recommended):**
 ```bash
-# Set up Azure OpenAI credentials
-export AZURE_AI_CHAT_ENDPOINT=https://your-endpoint.cognitiveservices.azure.com
-export AZURE_AI_MODEL_DEPLOYMENT=gpt-4o
-export AZURE_AI_CHAT_KEY=your_api_key
-
-# Start the interactive chat
-python -m src.cli_interface --mode remote
+python -m src.cli_interface  # Starts immediately in remote mode
 ```
 
-**Local Mode (Testing Only):**
-```bash
-# Start AI Foundry service
-foundry service start
-foundry model load phi-4-mini
-
-# Start in local mode
-python -m src.cli_interface --mode local
+**Example conversation:**
 ```
+Assistant: Hi! I'm a Screenshot Organizer agent built with Microsoft Agent Framework.
+           I can help you organize chaotic screenshot folders...
+           Where do you typically save your screenshots?
 
-**Example conversation (Remote Mode):**
-```
-You: Analyze this screenshot: /Users/me/Desktop/screenshot.png
-Assistant: I'll analyze that screenshot for you...
-[Analysis results]
-
-You: Organize all screenshots in ~/Desktop/screenshots
-Assistant: I found 15 screenshots. Should I organize them?
-You: Yes
-Assistant: Done! Organized 15 screenshots into categories...
-```
-
-**Note:** Local mode provides basic chat only - no screenshot analysis or file organization.
-
-
-#### Python API
-
-```python
-from mcp_tools import MCPToolHandlers
-
-# Initialize handlers
-handlers = MCPToolHandlers()
-
-# Analyze a screenshot
-result = handlers.analyze_screenshot(
-    path="/path/to/screenshot.png",
-    force_vision=False  # Try OCR first
-)
-
-print(f"Category: {result['category']}")
-print(f"Suggested filename: {result['suggested_filename']}")
-print(f"Method used: {result['processing_method']}")
-
-# Batch process a folder
-stats = handlers.batch_process(
-    folder="/path/to/screenshots",
-    recursive=False,
-    organize=True  # Automatically organize after analysis
-)
-
-print(f"Processed {stats['successful']} of {stats['total_files']} files")
-print(f"Categories: {stats['categories_count']}")
-
-# Organize a single file
-result = handlers.organize_file(
-    source_path="/path/to/screenshot.png",
-    category="code",
-    new_filename="python_function_example"
-)
+You: /Users/me/Desktop/screenshots
+Assistant: Perfect! Let me analyze the screenshots in that folder...
 ```
 
 ## Configuration
+
 
 Configuration is managed via `config/default_config.yaml`:
 
