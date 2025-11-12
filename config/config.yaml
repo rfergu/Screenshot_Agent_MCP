@@ -17,22 +17,22 @@ demo:
   show_cost_estimate: false  # Show estimated cost per query
 
 # ============================================================================
-# LOCAL MODE CONFIGURATION (Phi-3 Vision MLX)
+# LOCAL MODE CONFIGURATION (AI Foundry + Phi-3 Vision MLX)
 # ============================================================================
 local:
   enabled: true
 
-  # Model configuration
-  model_type: "phi-3-vision-mlx"
-  model_path: null  # null = auto-download, or specify path to model files
+  # Chat model: AI Foundry Phi-4 (requires `foundry run phi-4`)
+  endpoint: "http://127.0.0.1:5272/v1/chat/completions"
+  model: "phi-4"
+
+  # Vision model: Phi-3 Vision MLX (for screenshot analysis only)
+  # Automatically used by analyze_screenshot tool
+  # Note: phi-3-vision-mlx v0.0.3rc1 has a syntax error that we workaround
 
   # Generation parameters
-  max_tokens: 2048
+  max_tokens: 1024
   temperature: 0.7
-
-  # Performance
-  # Note: First query will be slow due to model loading (~8GB)
-  lazy_load: true  # Load model on first use (recommended)
 
 # ============================================================================
 # REMOTE MODE CONFIGURATION (Azure OpenAI / AI Foundry)

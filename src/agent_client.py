@@ -121,28 +121,32 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
         return detected_mode
 
     def _init_local_client(self):
-        """Initialize local Phi-3 chat client."""
+        """Initialize local AI Foundry chat client."""
         try:
-            from phi3_chat_client import Phi3LocalChatClient
+            from phi3_chat_client import LocalFoundryChatClient
 
-            # Get local model configuration
-            model_path = config_get("local.model_path")
+            # Get local endpoint configuration
+            endpoint = config_get("local.endpoint", "http://127.0.0.1:5272/v1/chat/completions")
+            model = config_get("local.model", "phi-4")
 
-            # Initialize Phi-3 local client
-            self.chat_client = Phi3LocalChatClient(model_path=model_path)
-            self.model_name = "phi-3-vision-mlx"
-            self.endpoint = "local (on-device)"
+            # Initialize AI Foundry local client
+            self.chat_client = LocalFoundryChatClient(endpoint=endpoint, model=model)
+            self.model_name = f"{model} (local)"
+            self.endpoint = endpoint
 
-            logger.info("🏠 LOCAL MODE: Using Phi-3 Vision MLX (fully on-device)")
+            logger.info("🏠 LOCAL MODE: Using AI Foundry local inference")
+            logger.info(f"   - Chat model: {model}")
+            logger.info(f"   - Vision model: phi-3-vision-mlx (for screenshots)")
             logger.info("   - Zero cost per query")
             logger.info("   - Complete privacy (no data leaves device)")
-            logger.info("   - First query may be slow (~8GB model loading)")
+            logger.info("   - Requires: foundry run phi-4")
 
         except ImportError as e:
-            logger.error(f"Failed to import Phi3LocalChatClient: {e}")
+            logger.error(f"Failed to import LocalFoundryChatClient: {e}")
             raise ImportError(
-                "Local mode requires phi-3-vision-mlx package.\n"
-                "Install with: pip install phi-3-vision-mlx\n"
+                "Local mode requires AI Foundry and azure-ai-inference.\n"
+                "Install AI Foundry: https://aka.ms/ai-foundry/sdk\n"
+                "Start server: foundry run phi-4\n"
                 "Or switch to remote mode: --mode remote"
             ) from e
 

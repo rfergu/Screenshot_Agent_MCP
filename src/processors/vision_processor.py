@@ -47,21 +47,60 @@ Categories must be one of: code, errors, documentation, design, communication, m
         """Lazy load Phi-3 Vision model on first use.
 
         This defers the expensive model loading (~8GB) until actually needed.
+
+        Note: phi-3-vision-mlx v0.0.3rc1 has a syntax error at line 699.
+        We work around this by reading, patching, and executing the module code.
         """
         if self.model is None:
             logger.info("Loading Phi-3 Vision model (this may take a moment)...")
             try:
-                # Import here to avoid requiring phi-3-vision-mlx if not used
-                from phi3v import Phi3Vision
-                self.model = Phi3Vision()
-                logger.info("Phi-3 Vision model loaded successfully")
-            except ImportError as e:
-                logger.error(f"Failed to import phi-3-vision-mlx: {e}")
+                # Workaround for phi-3-vision-mlx v0.0.3rc1 syntax error
+                import sys
+                from pathlib import Path as PathLib
+
+                # Find the phi_3_vision_mlx.py file
+                phi3_module_path = None
+                for path in sys.path:
+                    candidate = PathLib(path) / "phi_3_vision_mlx.py"
+                    if candidate.exists():
+                        phi3_module_path = candidate
+                        break
+
+                if not phi3_module_path:
+                    raise ImportError("phi-3-vision-mlx module file not found")
+
+                # Read and patch the syntax error
+                with open(phi3_module_path, 'r') as f:
+                    module_code = f.read()
+
+                # Fix line 699: Replace nested quotes in f-string
+                # Original: {textwrap.indent(code, "    ")}
+                # Fixed: {textwrap.indent(code, '    ')}
+                module_code = module_code.replace(
+                    'textwrap.indent(code, "    ")',
+                    "textwrap.indent(code, '    ')"
+                )
+
+                # Create namespace and execute patched code
+                phi3_namespace = {'__name__': 'phi_3_vision_mlx'}
+                exec(module_code, phi3_namespace)
+
+                # Store the chat function
+                self.model = {
+                    'chat': phi3_namespace['chat'],
+                    '_preload': phi3_namespace.get('_preload'),
+                    '_apply_chat_template': phi3_namespace.get('_apply_chat_template'),
+                    'generate': phi3_namespace.get('generate')
+                }
+                logger.info("Phi-3 Vision model loaded successfully (patched v0.0.3rc1)")
+
+            except FileNotFoundError:
+                logger.error("phi-3-vision-mlx module not found")
                 raise ImportError(
                     "phi-3-vision-mlx not available. Install with: pip install phi-3-vision-mlx"
-                ) from e
+                )
             except Exception as e:
-                logger.error(f"Failed to load Phi-3 Vision model: {e}")
+                logger.error(f"Failed to load Phi-3 Vision model: {e}", exc_info=True)
                 raise
 
     def process(self, image_path: str | Path) -> VisionResult:
@@ -126,12 +165,32 @@ Categories must be one of: code, errors, documentation, design, communication, m
             image: PIL Image to process.
 
         Returns:
-            Model response as string.
+            Model response as string (JSON format expected).
         """
-        # TODO: Implement actual model call when phi-3-vision-mlx is available
-        # For now, return a placeholder that will be replaced with real model call
-        logger.warning("Using placeholder model response (real model not implemented yet)")
-        return '{"category": "other", "description": "Placeholder response", "filename": "placeholder"}'
+        try:
+            # Call the phi-3-vision-mlx chat function
+            # chat(prompt, images=None, preload=None, max_tokens=500, ...)
+            response_tuple = self.model['chat'](
+                prompt=self.prompt_template,
+                images=[image],
+                max_tokens=500,
+                verbose=False,
+                stream=False
+            )
+
+            # chat() returns a tuple: (response_text, ...)
+            if isinstance(response_tuple, tuple):
+                response_text = response_tuple[0]
+            else:
+                response_text = str(response_tuple)
+
+            logger.debug(f"Vision model raw response: {response_text[:200]}...")
+            return response_text
+
+        except Exception as e:
+            logger.error(f"Error calling vision model: {e}", exc_info=True)
+            # Return a safe fallback
+            return '{"category": "other", "description": "Vision model error", "filename": "error_processing"}'
 
     def _parse_response(self, response: str) -> Dict[str, Any]:
         """Parse JSON response from vision model.
