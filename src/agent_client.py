@@ -5,7 +5,6 @@ from typing import Optional
 
 from agent_framework import ChatAgent
 from agent_framework.azure import AzureOpenAIChatClient
-from azure.core.credentials import AzureKeyCredential
 from azure.identity import DefaultAzureCredential
 from rich.console import Console
 from rich.markdown import Markdown
@@ -77,21 +76,25 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
 
         # Get credential
         api_key = credential or os.environ.get("AZURE_AI_CHAT_KEY")
-        if api_key:
-            azure_credential = AzureKeyCredential(api_key)
-            logger.info("Using Azure API key authentication")
-        else:
-            # Fall back to DefaultAzureCredential (az login)
-            azure_credential = DefaultAzureCredential()
-            logger.info("Using DefaultAzureCredential (Azure CLI authentication)")
 
         # Initialize Agent Framework chat client
         # AzureOpenAIChatClient works with both Foundry and Azure OpenAI endpoints
-        self.chat_client = AzureOpenAIChatClient(
-            endpoint=self.endpoint,
-            credential=azure_credential,
-            model=self.model
-        )
+        if api_key:
+            # Use API key authentication
+            self.chat_client = AzureOpenAIChatClient(
+                endpoint=self.endpoint,
+                api_key=api_key,
+                deployment_name=self.model
+            )
+            logger.info("Using Azure API key authentication")
+        else:
+            # Fall back to DefaultAzureCredential (az login)
+            self.chat_client = AzureOpenAIChatClient(
+                endpoint=self.endpoint,
+                credential=DefaultAzureCredential(),
+                deployment_name=self.model
+            )
+            logger.info("Using DefaultAzureCredential (Azure CLI authentication)")
 
         # Create agent with screenshot organization tools
         self.agent = ChatAgent(
