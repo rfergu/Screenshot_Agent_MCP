@@ -232,18 +232,18 @@ code, errors, documentation, design, communication, memes, other
     help="Session ID to resume previous conversation"
 )
 @click.option(
-    "--mode",
-    type=click.Choice(["local", "remote"], case_sensitive=False),
-    help="Operation mode: 'local' (testing only, no tools) or 'remote' (production, full capabilities)"
+    "--local",
+    is_flag=True,
+    help="Use local testing mode (Phi-4-mini, no tools). Default is remote mode (GPT-4, full capabilities)."
 )
 @click.option(
     "--port",
     type=int,
-    help="Port for local Foundry service (e.g., 60779). Auto-detected if not specified."
+    help="Port for local Foundry service (e.g., 60779). Only for --local mode. Auto-detected if not specified."
 )
 @click.option(
     "--endpoint",
-    help="Full endpoint URL for local Foundry service (overrides --port). Auto-detected if not specified."
+    help="Full endpoint URL for local Foundry service (overrides --port). Only for --local mode."
 )
 @click.option(
     "--config",
@@ -255,49 +255,27 @@ code, errors, documentation, design, communication, memes, other
     is_flag=True,
     help="Enable debug logging"
 )
-def main(session: Optional[str], mode: Optional[str], port: Optional[int],
+def main(session: Optional[str], local: bool, port: Optional[int],
          endpoint: Optional[str], config: Optional[Path], debug: bool):
     """Interactive AI assistant for organizing screenshots.
 
-    Supports two operation modes:
-
-    LOCAL MODE (TESTING ONLY):
-      • Basic chat for testing conversation flow
-      • NO tool support (no screenshot analysis, no file organization)
-      • Use for quick agent instruction testing only
-      • Requires: Azure AI Foundry CLI installed and running
-
-    REMOTE MODE (PRODUCTION):
-      • Full AI agent capabilities with tool support
+    REMOTE MODE (default):
+      • Full AI agent capabilities with GPT-4
       • Screenshot analysis, batch processing, file organization
-      • Powered by Azure OpenAI (GPT-4)
-      • Requires: Azure credentials configured
+      • Requires: Azure credentials (AZURE_AI_CHAT_ENDPOINT, AZURE_AI_CHAT_KEY, AZURE_AI_MODEL_DEPLOYMENT)
+      • Get credentials from: https://ai.azure.com or Azure Portal
 
-    Mode Selection:
-      • If --mode flag provided: Uses specified mode
-      • If no flag: Interactive prompt at startup
-      • Recommended: Always use remote for production work
-
-    Local Mode Endpoint Options:
-      • Auto-detect (default): Detects port via 'foundry service status'
-      • --port PORT: Use specific port (e.g., --port 60779)
-      • --endpoint URL: Use full endpoint URL
+    LOCAL MODE (--local flag):
+      • Testing/debugging only - uses Phi-4-mini, NO tools
+      • Basic chat for testing conversation flow
+      • NO screenshot analysis, NO file organization
+      • Requires: Azure AI Foundry CLI running
 
     Examples:
-      python -m src.cli_interface --mode local                    # Auto-detect
-      python -m src.cli_interface --mode local --port 60779       # Explicit port
-      python -m src.cli_interface --mode local --endpoint URL     # Full URL
-
-    Required environment variables for REMOTE mode:
-      AZURE_AI_CHAT_ENDPOINT - Your Azure endpoint (Foundry or Azure OpenAI)
-      AZURE_AI_CHAT_KEY - Your API key (or use 'az login' for CLI auth)
-      AZURE_AI_MODEL_DEPLOYMENT - Your deployed model name (e.g., gpt-4o)
-
-    Supported endpoints:
-      - AI Foundry: https://xxx.services.ai.azure.com/api/projects/xxx
-      - Azure OpenAI: https://xxx.cognitiveservices.azure.com
-
-    Get credentials from: https://ai.azure.com or Azure Portal
+      python -m src.cli_interface                        # Remote mode (default)
+      python -m src.cli_interface --local                # Local testing mode
+      python -m src.cli_interface --local --port 60779   # Local with explicit port
+      python -m src.cli_interface --session abc123       # Resume previous session
     """
     # Setup logging
     log_level = "DEBUG" if debug else "INFO"
@@ -310,44 +288,14 @@ def main(session: Optional[str], mode: Optional[str], port: Optional[int],
     else:
         load_config()
 
-    # Interactive mode selection if not specified via CLI
+    # Determine mode from --local flag
     import os
-    from utils.config import get_mode
 
-    if mode is None:
-        console = Console()
-        console.print()
-        console.print(Panel.fit(
-            "[bold cyan]Screenshot Organizer[/bold cyan]\n\n"
-            "Select operation mode:",
-            border_style="cyan"
-        ))
-        console.print()
-        console.print("[bold]1.[/bold] [green]Local Mode[/green] (TESTING ONLY)")
-        console.print("   • Basic chat for testing conversation flow")
-        console.print("   • NO tools (no screenshot analysis)")
-        console.print("   • Requires: Azure AI Foundry CLI running")
-        console.print()
-        console.print("[bold]2.[/bold] [cyan]Remote Mode[/cyan] (PRODUCTION - RECOMMENDED)")
-        console.print("   • Full AI agent capabilities with tool support")
-        console.print("   • Screenshot analysis, file organization")
-        console.print("   • Requires: Azure credentials")
-        console.print()
-
-        choice = Prompt.ask(
-            "[bold]Choose mode[/bold]",
-            choices=["1", "2"],
-            default="2"
-        )
-
-        mode = "local" if choice == "1" else "remote"
-        console.print()
-        logger.info(f"User selected {mode} mode")
-
-    actual_mode = mode
+    mode = "local" if local else "remote"
+    logger.info(f"Starting in {mode} mode")
 
     # Validate Azure credentials only for remote mode
-    if actual_mode == "remote":
+    if mode == "remote":
         endpoint = os.environ.get("AZURE_AI_CHAT_ENDPOINT")
         if not endpoint:
             console = Console()
