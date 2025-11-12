@@ -1,0 +1,151 @@
+# Screenshot Organizer Configuration
+# Supports both fully local and fully remote operation
+
+# ============================================================================
+# DEMO MODE CONFIGURATION
+# ============================================================================
+demo:
+  # Operation mode: "local", "remote", or "auto"
+  # - local: TESTING ONLY - basic chat for conversation flow testing (no tools)
+  # - remote: PRODUCTION - full capabilities with tool support and GPT-4
+  # - auto: Tries local first, falls back to remote if needed
+  mode: "remote"  # Recommended: Use remote for production, local for quick testing only
+
+  # Display options for demo purposes
+  show_model_name: true      # Show [🏠 local] or [☁️ remote] in responses
+  show_latency: false        # Show processing time for each response
+  show_cost_estimate: false  # Show estimated cost per query
+
+# ============================================================================
+# LOCAL MODE CONFIGURATION - TESTING ONLY
+# ============================================================================
+local:
+  enabled: true
+
+  # ⚠️  WARNING: Local mode is for TESTING ONLY ⚠️
+  #
+  # Local models (Phi-4, Phi-4-mini) do NOT reliably support:
+  #   - Function calling / tool integration
+  #   - Screenshot analysis
+  #   - File organization
+  #
+  # Use local mode for:
+  #   ✓ Quick agent conversation flow testing
+  #   ✓ Validating agent instructions
+  #   ✓ Fast iteration without API costs
+  #
+  # Use remote mode (GPT-4) for:
+  #   ✓ Production usage
+  #   ✓ Real screenshot analysis
+  #   ✓ Reliable tool execution
+
+  # Chat model: AI Foundry Phi-4-mini (requires foundry service to be running)
+  # Endpoint options:
+  #   - "auto" (recommended): Auto-detect via 'foundry service status'
+  #   - Specific base URL with /v1: e.g., "http://127.0.0.1:60779/v1"
+  # Note: Foundry Local uses dynamically-allocated ports, so "auto" is best
+  # Note: SDK appends /chat/completions → http://127.0.0.1:PORT/v1/chat/completions
+  endpoint: "auto"
+  model: "phi-4-mini"
+
+  # Generation parameters
+  max_tokens: 1024
+  temperature: 0.7
+
+# ============================================================================
+# REMOTE MODE CONFIGURATION - PRODUCTION
+# ============================================================================
+remote:
+  enabled: true
+
+  # PRODUCTION MODE: Full AI agent capabilities
+  #   ✓ Complete tool support (MCP protocol)
+  #   ✓ Screenshot analysis with GPT-4 Vision
+  #   ✓ Reliable function calling
+  #   ✓ File organization and batch processing
+
+  # Provider: "azure_openai" or "azure_foundry"
+  provider: "azure_openai"
+
+  # Endpoint configuration (uses environment variables)
+  # Set these in your .env file or environment:
+  #   AZURE_AI_CHAT_ENDPOINT
+  #   AZURE_AI_MODEL_DEPLOYMENT
+  #   AZURE_AI_CHAT_KEY
+  endpoint: "${AZURE_AI_CHAT_ENDPOINT}"
+  deployment: "${AZURE_AI_MODEL_DEPLOYMENT}"
+  api_key: "${AZURE_AI_CHAT_KEY}"
+
+  # Fallback to Azure CLI authentication if no API key
+  use_azure_cli_fallback: true
+
+# ============================================================================
+# TOOL CONFIGURATION (Same for both local and remote)
+# ============================================================================
+tools:
+  # Enable/disable specific tools
+  analyze_screenshot: true
+  batch_process: true
+  organize_file: true
+
+  # Tool behavior
+  default_force_vision: false  # For analyze_screenshot
+  default_recursive: false     # For batch_process
+  default_archive: true        # For organize_file
+
+# ============================================================================
+# PROCESSING CONFIGURATION
+# ============================================================================
+processing:
+  # OCR settings
+  ocr_min_words: 10  # Minimum words for OCR to be considered sufficient
+
+  # Vision model settings (for screenshot analysis, not chat)
+  vision_confidence_threshold: 0.5
+
+# ============================================================================
+# ORGANIZATION CONFIGURATION
+# ============================================================================
+organization:
+  base_folder: "~/Screenshots/organized"
+  categories:
+    - code
+    - errors
+    - documentation
+    - design
+    - communication
+    - memes
+    - other
+  keep_originals: true  # Archive originals instead of deleting
+
+# ============================================================================
+# LOGGING CONFIGURATION
+# ============================================================================
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "detailed"  # simple, detailed
+
+# ============================================================================
+# DEMO SCENARIOS
+# ============================================================================
+# Quick configuration presets for different demo scenarios
+
+scenarios:
+  # Fully local demo - emphasizes privacy and zero cost
+  privacy_first:
+    demo.mode: "local"
+    demo.show_model_name: true
+    demo.show_cost_estimate: true
+
+  # Fully remote demo - emphasizes capability
+  cloud_powered:
+    demo.mode: "remote"
+    demo.show_model_name: true
+    demo.show_latency: true
+
+  # Comparison demo - shows both side by side
+  comparison:
+    demo.mode: "auto"
+    demo.show_model_name: true
+    demo.show_latency: true
+    demo.show_cost_estimate: true

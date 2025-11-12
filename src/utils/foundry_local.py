@@ -1,0 +1,223 @@
+"""Foundry Local endpoint detection utilities.
+
+This module helps auto-detect the Azure AI Foundry Local service endpoint,
+which uses a dynamically-allocated port that changes on each service start.
+Also detects the correct model ID format (e.g., "Phi-4-generic-gpu:1" not "phi-4").
+"""
+
+import re
+import subprocess
+import requests
+from typing import Optional, Tuple
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+# Cache for session duration (avoid running subprocess repeatedly)
+_cached_endpoint: Optional[str] = None
+_cached_model_id: Optional[str] = None
+
+
+def detect_foundry_endpoint() -> Optional[str]:
+    """Auto-detect Foundry Local service endpoint via 'foundry service status'.
+
+    The Foundry Local service uses a dynamically-allocated port, so we need to
+    detect it at runtime. This function:
+    1. Runs 'foundry service status' subprocess
+    2. Parses output for endpoint URL (e.g., http://127.0.0.1:60779/openai/status)
+    3. Converts to chat completions endpoint format
+
+    Returns:
+        Chat completions endpoint URL, or None if detection fails.
+
+    Example:
+        >>> endpoint = detect_foundry_endpoint()
+        >>> print(endpoint)
+        http://127.0.0.1:60779/v1/chat/completions
+    """
+    global _cached_endpoint
+
+    # Return cached value if available
+    if _cached_endpoint is not None:
+        logger.debug(f"Using cached Foundry endpoint: {_cached_endpoint}")
+        return _cached_endpoint
+
+    try:
+        # Run foundry service status
+        logger.debug("Running 'foundry service status' to detect endpoint...")
+        result = subprocess.run(
+            ["foundry", "service", "status"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        if result.returncode != 0:
+            logger.warning(f"'foundry service status' failed with code {result.returncode}")
+            logger.debug(f"stderr: {result.stderr}")
+            return None
+
+        output = result.stdout
+        logger.debug(f"foundry service status output: {output}")
+
+        # Parse endpoint from output
+        # Expected format: "Model management service is running on http://127.0.0.1:60779/openai/status"
+        # We want to extract: http://127.0.0.1:60779
+        match = re.search(r'http://127\.0\.0\.1:\d+', output)
+        if not match:
+            logger.warning("Could not find endpoint in 'foundry service status' output")
+            logger.debug(f"Output was: {output}")
+            return None
+
+        base_endpoint = match.group(0)
+
+        # Azure AI Inference SDK appends /chat/completions to endpoint
+        # Foundry Local expects /v1/chat/completions
+        # So we return http://127.0.0.1:PORT/v1 and SDK makes it /v1/chat/completions
+        foundry_endpoint = f"{base_endpoint}/v1"
+        logger.info(f"✓ Detected Foundry Local endpoint: {foundry_endpoint}")
+
+        # Cache for session
+        _cached_endpoint = foundry_endpoint
+        return foundry_endpoint
+
+    except FileNotFoundError:
+        logger.warning("'foundry' command not found - is AI Foundry CLI installed?")
+        logger.info("Install with: brew install azure/ai-foundry/foundry")
+        return None
+    except subprocess.TimeoutExpired:
+        logger.warning("'foundry service status' command timed out")
+        return None
+    except Exception as e:
+        logger.warning(f"Unexpected error detecting Foundry endpoint: {e}")
+        logger.debug("Exception details:", exc_info=True)
+        return None
+
+
+def detect_model_id(model_name: str, base_endpoint: str) -> Optional[str]:
+    """Detect the actual model ID from Foundry Local's /v1/models endpoint.
+
+    Foundry Local uses specific model IDs like "Phi-4-generic-gpu:1" instead of
+    simple names like "phi-4". This function queries the models API to find the
+    correct ID.
+
+    Args:
+        model_name: Simple model name (e.g., "phi-4")
+        base_endpoint: Base URL (e.g., "http://127.0.0.1:60779")
+
+    Returns:
+        Full model ID (e.g., "Phi-4-generic-gpu:1"), or None if not found.
+    """
+    global _cached_model_id
+
+    # Return cached value if available
+    if _cached_model_id is not None:
+        logger.debug(f"Using cached model ID: {_cached_model_id}")
+        return _cached_model_id
+
+    try:
+        # Query /v1/models endpoint
+        # Check if endpoint already has /v1 to avoid doubling the path
+        if base_endpoint.endswith('/v1'):
+            models_url = f"{base_endpoint}/models"
+        else:
+            models_url = f"{base_endpoint}/v1/models"
+        logger.debug(f"Querying models list from {models_url}")
+
+        response = requests.get(models_url, timeout=5)
+        response.raise_for_status()
+
+        models_data = response.json()
+        models = models_data.get("data", [])
+
+        # Find model matching the simple name (case-insensitive match)
+        # Prefer exact/longer matches over shorter ones (e.g., "phi-4-mini" before "phi-4")
+        model_name_lower = model_name.lower()
+
+        # Sort models by ID length (descending) to prefer longer matches
+        sorted_models = sorted(models, key=lambda m: len(m.get("id", "")), reverse=True)
+
+        for model in sorted_models:
+            model_id = model.get("id", "")
+            model_id_lower = model_id.lower()
+
+            # Check if model_id contains the model_name as a prefix (case-insensitive)
+            # e.g., "phi-4-mini" should match "Phi-4-mini-instruct-generic-gpu:4" not "Phi-4-generic-gpu:1"
+            if model_id_lower.startswith(model_name_lower):
+                logger.info(f"✓ Detected model ID: {model_id} (for {model_name})")
+                _cached_model_id = model_id
+                return model_id
+
+        logger.warning(f"Could not find model matching '{model_name}' in available models")
+        logger.debug(f"Available models: {[m.get('id') for m in models]}")
+        return None
+
+    except requests.RequestException as e:
+        logger.warning(f"Failed to query models endpoint: {e}")
+        return None
+    except Exception as e:
+        logger.warning(f"Unexpected error detecting model ID: {e}")
+        logger.debug("Exception details:", exc_info=True)
+        return None
+
+
+def clear_endpoint_cache():
+    """Clear the cached endpoint and model ID (useful for testing or after service restart)."""
+    global _cached_endpoint, _cached_model_id
+    _cached_endpoint = None
+    _cached_model_id = None
+    logger.debug("Cleared Foundry endpoint and model ID cache")
+
+
+def check_foundry_service_running() -> bool:
+    """Check if Foundry Local service is running.
+
+    Returns:
+        True if service is running, False otherwise.
+    """
+    try:
+        result = subprocess.run(
+            ["foundry", "service", "status"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        # Check if output contains "running"
+        if result.returncode == 0 and "running" in result.stdout.lower():
+            return True
+
+        return False
+
+    except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+        return False
+
+
+def get_foundry_setup_instructions() -> str:
+    """Get user-friendly setup instructions for Foundry Local.
+
+    Returns:
+        Formatted setup instructions string.
+    """
+    return """
+To use local mode with AI Foundry:
+
+1. Install AI Foundry CLI:
+   brew install azure/ai-foundry/foundry
+
+2. Download Phi-4 model:
+   foundry model get phi-4
+
+3. Start the service:
+   foundry service start
+
+4. Load the model:
+   foundry model load phi-4
+
+5. Verify it's running:
+   foundry service status
+
+Then restart this application - it will auto-detect the endpoint.
+
+Alternatively, switch to remote mode: --mode remote
+""".strip()

@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.Python
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+.vscode/
+.idea/
+
+# Byte-compiled / optimized / DLL files
+*.so
+*.dylib
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+
+# Coverage
+htmlcov/
+.coverage
+coverage.xml
+
+# Model cache / downloads
+.cache/
+phi3_model/
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Misc
+*.tmp
+*.swp
+
+# Local test output
+test-output/
+test_screenshots/
+
+# Temporary test files (root-level only)
+/test_*.py
+/stdout.txt
+
+# Secrets (ensure this is in repo-wide policies)
+secrets/
+
+# Deprecated files
+*.deprecated
+
+# Model files (Phi-3 Vision, etc.)
+phi3v/
+phi3_model/
+

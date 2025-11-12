@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  screenshot-organizer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: screenshot-organizer:latest
+    container_name: screenshot-organizer
+    
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - MODEL_CACHE_DIR=/app/models
+      - PYTHONPATH=/app/src
+    
+    volumes:
+      # Mount screenshots directory (read-only for safety)
+      - ${SCREENSHOTS_DIR:-~/Screenshots}:/screenshots:ro
+      
+      # Mount organized output directory
+      - ${OUTPUT_DIR:-~/Screenshots/organized}:/output
+      
+      # Persistent model cache
+      - screenshot-models:/app/models
+      
+      # Persistent session data
+      - screenshot-sessions:/app/sessions
+      
+      # Persistent logs
+      - screenshot-logs:/app/logs
+      
+      # Mount config (optional)
+      - ./config:/app/config:ro
+    
+    stdin_open: true
+    tty: true
+    
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "python", "-c", "from src.utils.config import load_config; load_config()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # MCP Server mode (optional - uncomment to run as server)
+  # screenshot-mcp-server:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   image: screenshot-organizer:latest
+  #   container_name: screenshot-mcp-server
+  #   
+  #   environment:
+  #     - LOG_LEVEL=${LOG_LEVEL:-INFO}
+  #     - MODEL_CACHE_DIR=/app/models
+  #     - MCP_SERVER_PORT=3000
+  #   
+  #   volumes:
+  #     - ${SCREENSHOTS_DIR:-~/Screenshots}:/screenshots:ro
+  #     - ${OUTPUT_DIR:-~/Screenshots/organized}:/output
+  #     - screenshot-models:/app/models
+  #     - screenshot-logs:/app/logs
+  #   
+  #   ports:
+  #     - "3000:3000"
+  #   
+  #   command: ["python", "-m", "src.screenshot_mcp_server"]
+  #   
+  #   restart: unless-stopped
+
+volumes:
+  screenshot-models:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${MODEL_CACHE_DIR:-./data/models}
+  
+  screenshot-sessions:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${SESSION_DIR:-./data/sessions}
+  
+  screenshot-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${LOG_DIR:-./data/logs}
+
+networks:
+  default:
+    name: screenshot-organizer-network
