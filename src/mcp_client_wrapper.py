@@ -139,15 +139,27 @@ class MCPClientWrapper:
             # Parse result from TextContent
             if hasattr(result, 'content') and result.content:
                 content_text = result.content[0].text
-                data = json.loads(content_text)
-                logger.debug(f"Tool {name} returned: {data}")
-                return data
+                logger.debug(f"Tool {name} raw content: {repr(content_text)}")
+
+                # Check if content is empty
+                if not content_text or not content_text.strip():
+                    logger.error(f"Tool {name} returned empty content")
+                    return {"error": "Tool returned empty response", "success": False}
+
+                try:
+                    data = json.loads(content_text)
+                    logger.debug(f"Tool {name} returned: {data}")
+                    return data
+                except json.JSONDecodeError as json_err:
+                    logger.error(f"JSON decode error for tool {name}: {json_err}")
+                    logger.error(f"Raw content was: {repr(content_text)}")
+                    return {"error": f"Invalid JSON response: {str(json_err)}", "success": False}
             else:
                 logger.error(f"Tool {name} returned unexpected format: {result}")
-                return {"error": "Unexpected result format"}
+                return {"error": "Unexpected result format", "success": False}
 
         except Exception as e:
-            logger.error(f"Error calling tool {name}: {e}")
+            logger.error(f"Error calling tool {name}: {e}", exc_info=True)
             return {"error": str(e), "success": False}
 
     # ========================================================================
@@ -423,11 +435,11 @@ def get_agent_framework_tools(mcp_client: MCPClientWrapper) -> List[Dict[str, An
         max_files: Annotated[Optional[int], Field(description="Max files to return")] = None
     ) -> Dict[str, Any]:
         """List screenshot files in a directory."""
-        return await mcp_client.call_tool_async("list_screenshots", {
-            "directory": directory,
-            "recursive": recursive,
-            "max_files": max_files
-        })
+        args = {"directory": directory, "recursive": recursive}
+        # Only include max_files if explicitly set (MCP SDK rejects None for optional int)
+        if max_files is not None:
+            args["max_files"] = max_files
+        return await mcp_client.call_tool_async("list_screenshots", args)
 
     tools.append({
         "function": list_screenshots_tool,
@@ -469,10 +481,11 @@ def get_agent_framework_tools(mcp_client: MCPClientWrapper) -> List[Dict[str, An
         base_dir: Annotated[Optional[str], Field(description="Base directory")] = None
     ) -> Dict[str, Any]:
         """Create a category folder for organizing screenshots."""
-        return await mcp_client.call_tool_async("create_category_folder", {
-            "category": category,
-            "base_dir": base_dir
-        })
+        args = {"category": category}
+        # Only include base_dir if explicitly set
+        if base_dir is not None:
+            args["base_dir"] = base_dir
+        return await mcp_client.call_tool_async("create_category_folder", args)
 
     tools.append({
         "function": create_category_folder_tool,
@@ -488,12 +501,15 @@ def get_agent_framework_tools(mcp_client: MCPClientWrapper) -> List[Dict[str, An
         keep_original: Annotated[bool, Field(description="Copy instead of move")] = True
     ) -> Dict[str, Any]:
         """Move or copy a screenshot file to a destination folder."""
-        return await mcp_client.call_tool_async("move_screenshot", {
+        args = {
             "source_path": source_path,
             "dest_folder": dest_folder,
-            "new_filename": new_filename,
             "keep_original": keep_original
-        })
+        }
+        # Only include new_filename if explicitly set
+        if new_filename is not None:
+            args["new_filename"] = new_filename
+        return await mcp_client.call_tool_async("move_screenshot", args)
 
     tools.append({
         "function": move_screenshot_tool,
