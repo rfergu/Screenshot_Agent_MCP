@@ -1,10 +1,110 @@
-# Screenshot Organizer with Local AI - Feature Specification
+# Screenshot Agent: Microsoft Agent Framework + MCP Demonstration
 
-## Feature Name
-Screenshot Organizer with Local AI Processing
+## Project Purpose
+
+**PRIMARY GOAL:** Demonstrate Microsoft Agent Framework WITH embedded MCP Client Integration
+
+This project shows how to build production AI agents using:
+1. **Microsoft Agent Framework** - Conversational intelligence and agent orchestration
+2. **Azure AI Foundry / Azure OpenAI** - Production-grade GPT-4o for reliable tool calling
+3. **Model Context Protocol (MCP)** - Standardized tool interface for file operations
+
+**The screenshot organization use case is SECONDARY** - it was chosen because it requires multiple tool calls and clearly demonstrates the "Brain (Agent Framework) vs Hands (MCP Server)" architectural pattern. Any multi-step file operation would serve the same demonstration purpose.
+
+## Demo & Training Context
+
+**This is a demonstration project**, not a production application. Key implications:
+
+1. **Architecture Choices Are Pedagogical:**
+   - Separate `src/agent/` and `src/screenshot_mcp/` directories make the integration pattern visually obvious
+   - Individual tool files in `src/screenshot_mcp/tools/` show exactly what MCP provides
+   - Code structure prioritizes clarity and teachability over optimization
+
+2. **Documentation Is Extensive:**
+   - `ARCHITECTURE.md` explains the "Brain vs Hands" pattern in detail
+   - `TRACEABILITY.md` shows how spec requirements map to implementation
+   - Code comments explain WHY architectural decisions were made, not just WHAT the code does
+
+3. **Use Case (Screenshots) Is Secondary:**
+   - Screenshot organization was chosen to demonstrate multi-step tool orchestration
+   - The important part is HOW Agent Framework coordinates with MCP tools
+   - Focus is on the integration pattern, not screenshot-specific features
+
+4. **Emphasis on Honest Capability Communication:**
+   - Local mode explicitly states its limitations (testing only, no tools)
+   - Constitution documents the reality of small vs large model tradeoffs
+   - Shows production AI agent development honestly, including what doesn't work
+
+## Dual-Mode Architecture (Testing vs Production)
+
+### Remote Mode - PRIMARY FOCUS (The Actual Demonstration)
+
+This is the **core demonstration** of Agent Framework WITH MCP Client Integration.
+
+**Purpose:** Show production AI agent development with reliable tool calling
+**Model:** Azure OpenAI GPT-4o (or Azure AI Foundry GPT-4o)
+**Agent Framework:** Microsoft Agent Framework with embedded MCP client
+**Tools:** 7 MCP tools via stdio transport to MCP server subprocess
+**Capabilities:** Complete screenshot organization workflow with conversational UX
+**CLI:** `python -m src.cli_interface` (default - no flags needed)
+
+**What Remote Mode Demonstrates:**
+- ✅ Agent Framework orchestrating GPT-4 for intelligent decisions
+- ✅ Embedded MCP client managing MCP server subprocess
+- ✅ Reliable tool calling with proper error handling
+- ✅ Multi-step workflows (discovery → sampling → execution → summary)
+- ✅ Conversational proactive agent UX (7-phase workflow)
+- ✅ Production-ready architecture patterns
+
+### Local Mode - Testing Only (NOT Part of Demonstration)
+
+This mode exists **ONLY for developer testing** of Agent Framework setup locally.
+
+**Purpose:** Test Agent Framework conversation flow without internet/API costs
+**Model:** Phi-4-mini via Azure AI Foundry CLI (local inference)
+**Agent Framework:** Microsoft Agent Framework (conversation only)
+**Tools:** NONE - local small models don't reliably support tool calling
+**Capabilities:** Basic chat only - NO screenshot processing, NO file operations
+**CLI:** `python -m src.cli_interface --local`
+
+**What Local Mode Is NOT:**
+- ❌ Not for actual screenshot organization
+- ❌ Not a "privacy mode" or offline version
+- ❌ Not a lightweight version of the full application
+- ❌ Not part of the Agent Framework + MCP demonstration
+- ❌ Not for production use
+
+**What Local Mode IS:**
+- ✅ For testing Agent Framework conversation flow locally
+- ✅ For validating system prompts work correctly
+- ✅ For developers making prompt changes without API costs
+- ✅ For verifying Agent Framework client setup works
+- ✅ For learning how Agent Framework handles basic conversations
+
+**When to Use Local Mode:**
+- Testing changes to system prompts before deploying
+- Verifying Agent Framework installation is correct
+- Developing without internet connection
+- Learning Agent Framework conversation patterns
+- Quick validation that agent responds appropriately
+
+**For Everything Else (Including All Demos):** Use remote mode.
+
+**Why No Tools in Local Mode?**
+Through implementation, we discovered that Phi-4-mini and other small local models have unreliable function/tool calling:
+- Tools are ignored or responses are hallucinated
+- JSON function arguments are often malformed
+- Inconsistent behavior makes it unsuitable for demonstrations
+
+Rather than provide a broken experience, local mode focuses on what small models do well: basic conversational chat. This honest approach shows the reality of production AI development - small models for testing conversation flow, large models for reliable tool execution.
 
 ## Feature Description
-A conversational AI agent that intelligently organizes screenshots through natural language interaction. Built with Microsoft Agent Framework and MCP (Model Context Protocol), the agent proactively guides users through discovery, analysis, and organization phases with context-aware intelligence. The agent adapts its behavior based on collection size, extracts meaningful content from screenshots, suggests smart categorization, offers multiple naming strategies, and provides real-time progress with intelligent summaries. Demonstrates **Agent Framework WITH MCP Client Integration** in an engaging demo that shows how modern AI agents combine conversational intelligence with structured tool execution. Supports dual-mode operation: local testing mode (Phi-4-mini for basic chat, no tools) or remote production mode (Azure OpenAI GPT-4o with full capabilities).
+
+A conversational AI agent that intelligently organizes screenshots through natural language interaction. Built with **Microsoft Agent Framework and MCP (Model Context Protocol)**, the agent proactively guides users through discovery, analysis, and organization phases with context-aware intelligence.
+
+The agent adapts its behavior based on collection size, extracts meaningful content from screenshots, suggests smart categorization, offers multiple naming strategies, and provides real-time progress with intelligent summaries.
+
+**Core demonstration:** How Agent Framework WITH embedded MCP Client Integration enables production AI agents to combine conversational intelligence with structured tool execution.
 
 ## User Stories
 
@@ -126,9 +226,9 @@ A conversational AI agent that intelligently organizes screenshots through natur
 **So that** I can easily organize screenshots without memorizing commands
 
 **Acceptance Criteria:**
-- Supports both local (testing only) and remote (production) chat modes
-- Remote mode uses Microsoft Agent Framework with full tool access
-- Local mode provides basic chat for testing conversation flow (no tools)
+- Supports dual-mode operation (see "Dual-Mode Architecture" section above for details)
+- Remote mode (production): Microsoft Agent Framework with full tool access and GPT-4o
+- Local mode (testing only): Basic chat for testing conversation flow (see architecture section for limitations)
 - Natural language understanding for user requests (remote mode)
 - Provides helpful suggestions and clarifications
 - Explains what the tool is doing at each step
@@ -136,7 +236,6 @@ A conversational AI agent that intelligently organizes screenshots through natur
 - Remembers context within a session
 - Clear error messages when operations fail
 - Displays current mode indicator to prevent confusion
-- Local mode explains its limitations and suggests remote mode for actual work
 
 ### US-010: Organize and Rename Files
 **As a** user  
@@ -202,7 +301,7 @@ A conversational AI agent that intelligently organizes screenshots through natur
 - **Critical**: Path normalization needed to handle shell-escaped spaces in file paths
 - Agent Framework (GPT-4o) makes intelligent decisions (categories, filenames, orchestration)
 - Tools return facts; Agent provides intelligence
-- Local mode has NO tools (testing conversation flow only)
+- Local mode has NO tools (see "Dual-Mode Architecture" section for details)
 
 ### FR-005: File Management
 - Create organized folder structure
@@ -337,44 +436,24 @@ A conversational AI agent that intelligently organizes screenshots through natur
 **Implementation:** See `src/agent_client.py` lines 59-164 (REMOTE_SYSTEM_PROMPT, Phase 7: Contextual Follow-Up) and `src/session_manager.py` (thread persistence)
 
 ### FR-016: Dual-Mode Support - Testing vs Production Architecture ✅ IMPLEMENTED
-- **Mode Selection**: Support both local and remote operation ✅
-  - CLI flag: `--local` for local mode, no flag = remote mode (default) ✅
-  - Remote mode is production default ✅
-  - **Recommended:** Always use remote for production work ✅
-  - **Setup Instructions:** See README.md for complete installation and setup guide for both modes ✅
-- **Local Mode (TESTING ONLY)**:
-  - Purpose: Quick testing of agent conversation flow and instructions
-  - Chat: AI Foundry Phi-4-mini via local inference server (foundry run phi-4-mini)
-  - **NO tool support** - basic chat responses only
-  - **NO screenshot analysis** - cannot call OCR or Vision models
-  - **NO file organization** - no access to file system operations
-  - LocalFoundryChatClient implements Agent Framework ChatClient protocol
-  - Uses azure-ai-inference SDK for local endpoint communication
-  - Requires: AI Foundry CLI, Phi-4-mini downloaded, inference server running
-  - Use cases: Testing system prompts, validating agent instructions, fast iteration without API costs
-- **Remote Mode (PRODUCTION)**:
-  - Purpose: Full AI agent capabilities with reliable tool support
-  - Chat: Azure OpenAI GPT-4o with complete tool calling support
-  - **Full MCP tool support** - 5 essential file operation tools via MCP server
-  - **MCP Architecture Active**: Agent Framework WITH embedded MCP client
-  - All file system operations mediated through MCP protocol
-  - Screenshot analysis with OCR (local tesseract) and Azure GPT-4o Vision (cloud fallback)
-  - Complete file organization capabilities
-  - AzureOpenAIChatClient with Azure credentials
-  - Supports both Azure AI Foundry and Azure OpenAI endpoints
-  - Use cases: Production screenshot organization, batch processing, reliable categorization, MCP protocol demonstration
-- **Mode-Specific Interface**:
-  - Same AgentClient wrapper for both modes
-  - **Different tool lists**: Empty list for local, full tools for remote
-  - **Different system prompts**: Testing guidance for local, full capabilities for remote
+
+**Overview:** See "Dual-Mode Architecture" section at the top of this spec for the complete description of local vs remote modes.
+
+**Key Implementation Details:**
+- **Mode Selection**: CLI flag `--local` for local mode (testing), no flag = remote mode (production default)
+- **Mode-Specific Configuration**:
+  - Same `AgentClient` wrapper for both modes
+  - Different tool lists: Empty list for local, full MCP tools for remote
+  - Different system prompts: Testing guidance for local, full 7-phase workflow for remote
   - Configuration via `config/config.yaml`
-  - CLI shows mode indicator to prevent confusion
-- **Architecture Reality**:
+  - CLI shows mode indicator to prevent user confusion
+- **Technical Requirements**:
+  - Local: AI Foundry CLI, Phi-4-mini model, inference server running
+  - Remote: Azure OpenAI/AI Foundry credentials, internet connectivity
+- **Architecture Reality Demonstrated**:
   - Local small models (Phi-4-mini) do NOT reliably support function calling
   - Remote large models (GPT-4o) have robust tool calling support
-  - This demonstrates production AI agent development reality: use appropriate models for the task
-  - OCR (tesseract) processes text-heavy screenshots locally before cloud vision fallback
-  - Azure GPT-4o Vision provides production-ready image understanding
+  - This shows production AI agent development reality: use appropriate models for each task
 
 **Implementation:**
 - CLI interface: `src/cli_interface.py` lines 234-238 (`--local` flag)
@@ -395,7 +474,7 @@ A conversational AI agent that intelligently organizes screenshots through natur
 - Image data sent to Azure OpenAI GPT-4o Vision when OCR fails (remote mode)
 - Images encoded as base64 and transmitted over HTTPS
 - OCR processing happens locally when possible (tesseract)
-- Local mode (testing only) does not process images at all
+- Local mode does not process images (see "Dual-Mode Architecture" section)
 - Azure data processing complies with Microsoft's data handling policies
 
 ### NFR-003: Usability
@@ -437,10 +516,7 @@ A conversational AI agent that intelligently organizes screenshots through natur
 2. **Q: How to handle non-image files in batch processing?**
    A: Skip with warning message, continue processing
 
-3. **Q: What if Phi-3 Vision model fails to download?**
-   A: Fall back to basic keyword classification from OCR
-
-4. **Q: How to handle very large images?**
+3. **Q: How to handle very large images?**
    A: Resize for processing while maintaining aspect ratio
 
 5. **Q: Why use MCP architecture (Agent Framework WITH MCP Client)?**
@@ -462,16 +538,11 @@ A conversational AI agent that intelligently organizes screenshots through natur
 6. **Q: Why support both local and remote modes?**
    A: Demonstrates the reality of production AI agent development: local small models are good for testing conversation flow but unreliable for tool calling. Remote large models (GPT-4) provide production-ready capabilities. This shows developers the tradeoffs between cost/privacy (local testing) vs reliability/capability (remote production).
 
-7. **Q: Why doesn't local mode have tools if the spec originally called for them?**
-   A: Through implementation we discovered that Phi-4-mini's function calling is unreliable (ignores tools, hallucinates responses, garbled JSON). Rather than providing a broken experience, local mode focuses on what small models do well: basic chat for testing agent instructions. This is more honest about current AI model capabilities and shows production development reality.
+7. **Q: Why doesn't local mode have tools?**
+   A: Local mode is for testing Agent Framework conversation flow only, not for actual screenshot organization. Small models like Phi-4-mini have unreliable function calling (ignores tools, hallucinates responses, garbled JSON). See "Dual-Mode Architecture" section for complete explanation of local vs remote mode purposes.
 
-8. **Q: Why use Azure GPT-4o Vision instead of local Phi-3 Vision?**
-   A: Through implementation we discovered that Phi-3 Vision MLX has significant issues:
-   - Missing 592 model parameters (vision encoder weights not loading properly)
-   - Syntax errors in the phi-3-vision-mlx package requiring runtime patching
-   - Unreliable for production use on macOS
-   - Azure GPT-4o Vision provides robust, production-ready image understanding
-   - Tesseract OCR handles text-heavy screenshots locally before falling back to cloud vision
+8. **Q: Why use Azure GPT-4o Vision instead of local vision models?**
+   A: This project demonstrates PRODUCTION AI agent patterns, which require reliable tool calling and robust vision capabilities - both available in GPT-4o but not in small local models. Local vision models had reliability issues during prototyping. Azure GPT-4o Vision provides production-ready image understanding while Tesseract OCR handles text-heavy screenshots locally for performance.
 
 ### Pending Clarifications
 - Exact format for renamed files (timestamp prefix?)
@@ -504,10 +575,10 @@ A conversational AI agent that intelligently organizes screenshots through natur
    - **Solution**: Catch OCR exceptions in `mcp_tools.py` and automatically fall back to Azure Vision
    - **Pattern**: Try local processing first, gracefully degrade to cloud when needed
 
-5. **Phi-3 Vision MLX Not Production-Ready**
-   - **Issue**: Missing 592 vision encoder parameters, syntax errors in package
-   - **Decision**: Use Azure GPT-4o Vision instead of problematic local model
-   - **Tradeoff**: Privacy/cost vs reliability - chose reliability for production use
+5. **Vision Model Selection: Production-Ready over Local**
+   - **Decision**: Use Azure GPT-4o Vision for robust, production-ready image understanding
+   - **Rationale**: Demonstrates production AI agent patterns requiring reliable tool calling
+   - **Architecture**: Local OCR (tesseract) for speed, Azure Vision for accuracy
 
 6. **Agent Framework Tool Integration**
    - **Discovery**: Tools are registered once at agent initialization, called automatically
