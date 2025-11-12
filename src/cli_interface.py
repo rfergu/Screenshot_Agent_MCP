@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
 
-from agent_client import AgentClient
+from agent.client import AgentClient
 from session_manager import SessionManager
 from utils.config import load_config, should_show_model_name
 from utils.logger import get_logger, setup_logging
