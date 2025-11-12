@@ -75,19 +75,26 @@ export AZURE_AI_CHAT_KEY="your-api-key"
 ### Local Mode
 
 **Requirements:**
-- `pip install phi-3-vision-mlx`
+- AI Foundry CLI: `brew install azure/ai-foundry/foundry`
+- Phi-4 downloaded: `foundry model get phi-4`
+- `pip install phi-3-vision-mlx azure-ai-inference`
 - macOS with Apple Silicon (M1/M2/M3)
 - ~8GB free RAM
 
-**Usage:**
+**Setup:**
 ```bash
+# 1. Start AI Foundry inference server (separate terminal)
+foundry run phi-4
+
+# 2. Run the screenshot organizer
 python src/cli_interface.py --mode local
 ```
 
-**First Run:**
-- Model will download automatically (~4GB)
-- First query will be slow (model loading)
-- Subsequent queries are faster
+**Models Used:**
+- **Chat**: Phi-4 (via AI Foundry local server)
+- **Screenshots**: Phi-3 Vision MLX (via phi-3-vision-mlx package)
+
+**Note:** Local mode uses TWO models - Phi-4 handles conversation, Phi-3 Vision analyzes screenshots
 
 ## Mode Indicators
 
@@ -196,6 +203,38 @@ print(f'Current mode: {get_mode()}')
 "
 ```
 
+## Model Architecture
+
+### Local Mode (Dual Model)
+
+Local mode uses **two separate models** for different tasks:
+
+1. **Phi-4** (AI Foundry local server)
+   - Purpose: Chat conversation with the agent
+   - Handles: Natural language understanding, tool orchestration
+   - Requirements: `foundry run phi-4`
+
+2. **Phi-3 Vision MLX**
+   - Purpose: Screenshot analysis only
+   - Handles: analyze_screenshot tool calls
+   - Requirements: `pip install phi-3-vision-mlx`
+
+### Remote Mode (Single Model)
+
+Remote mode uses **one model** for everything:
+
+1. **GPT-4o** (Azure OpenAI)
+   - Purpose: Both chat and screenshot analysis
+   - Handles: Everything - conversation + vision tasks
+   - Requirements: Azure OpenAI credentials
+
+### Why Dual Models for Local?
+
+- Phi-4: Excellent for chat, reasoning, tool calling
+- Phi-3 Vision: Specialized for image understanding
+- Together: Best of both worlds for local operation
+- Separate concerns: Chat layer ≠ Vision layer
+
 ## What's the Same in Both Modes?
 
 Regardless of mode, you get:
@@ -205,6 +244,6 @@ Regardless of mode, you get:
 - ✓ Same session persistence
 - ✓ Same CLI commands
 
-The **only difference** is which AI model handles the conversation:
-- **Local:** Phi-3 Vision MLX (on your device)
-- **Remote:** Azure OpenAI GPT-4 (in the cloud)
+The **only difference** is which models provide the underlying AI:
+- **Local:** Phi-4 (chat) + Phi-3 Vision (screenshots)
+- **Remote:** GPT-4o (both chat and screenshots)

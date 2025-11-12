@@ -26,18 +26,31 @@ python scripts/demo_comparison.py
 | Feature | Local Mode | Remote Mode |
 |---------|------------|-------------|
 | **Command** | `--mode local` | `--mode remote` (default) |
-| **Model** | Phi-3 Vision MLX | Azure OpenAI (GPT-4) |
+| **Chat Model** | Phi-4 (AI Foundry) | GPT-4o (Azure OpenAI) |
+| **Vision Model** | Phi-3 Vision MLX | GPT-4o (same) |
 | **Cost** | $0 per query | ~$0.01-0.05 per query |
 | **Privacy** | Complete (on-device) | Cloud processed |
-| **Setup** | `pip install phi-3-vision-mlx` | Azure credentials |
-| **First Run** | Slow (model download) | Fast |
+| **Setup** | `foundry run phi-4` + pip packages | Azure credentials |
+| **First Run** | Fast (if server running) | Fast |
 | **Requirements** | M1/M2/M3 Mac, ~8GB RAM | Internet, API key |
 
 ## Setup
 
 ### Local Mode Setup
 ```bash
-pip install phi-3-vision-mlx
+# Install AI Foundry CLI
+brew install azure/ai-foundry/foundry
+
+# Download Phi-4
+foundry model get phi-4
+
+# Install Python packages
+pip install phi-3-vision-mlx azure-ai-inference
+
+# Start inference server (in separate terminal)
+foundry run phi-4
+
+# Run screenshot organizer
 python src/cli_interface.py --mode local
 ```
 
