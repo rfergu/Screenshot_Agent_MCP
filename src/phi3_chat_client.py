@@ -16,7 +16,7 @@ from agent_framework._types import ChatMessage, ChatResponse
 from azure.ai.inference import ChatCompletionsClient
 from azure.ai.inference.models import SystemMessage, UserMessage, AssistantMessage
 from utils.logger import get_logger
-from utils.foundry_local import detect_foundry_endpoint, detect_model_id, get_foundry_setup_instructions
+from utils.foundry_local import detect_foundry_endpoint, detect_model_id, get_foundry_setup_instructions, clear_endpoint_cache
 
 logger = get_logger(__name__)
 
@@ -99,6 +99,39 @@ class LocalFoundryChatClient:
         logger.info(f"   Endpoint: {self.endpoint}")
         logger.info(f"   Model: {self.model_name}")
         logger.info("   Mode: FULLY LOCAL - no cloud dependencies")
+
+    def _reinitialize_connection(self):
+        """Reinitialize endpoint and model detection (called on connection errors).
+
+        This clears the cache and re-detects the endpoint/model, useful when the
+        Foundry service restarts on a different port.
+        """
+        logger.info("Reinitializing connection (clearing cache and re-detecting)")
+        clear_endpoint_cache()
+
+        # Re-detect endpoint
+        detected_endpoint = detect_foundry_endpoint()
+        if detected_endpoint:
+            self.endpoint = detected_endpoint
+            logger.info(f"✓ Re-detected endpoint: {self.endpoint}")
+
+            # Re-detect model ID
+            base_endpoint = self.endpoint.replace("/v1/chat/completions", "")
+            detected_model_id = detect_model_id(self.model_name.split("-")[0].lower() if "-" in self.model_name else self.model_name, base_endpoint)
+
+            if detected_model_id:
+                self.model_name = detected_model_id
+                logger.info(f"✓ Re-detected model ID: {self.model_name}")
+
+            # Reinitialize client with new endpoint
+            self.client = ChatCompletionsClient(
+                endpoint=self.endpoint,
+                credential={}
+            )
+            return True
+        else:
+            logger.warning("Failed to re-detect endpoint")
+            return False
 
     def _check_server_connection(self):
         """Check if AI Foundry inference server is running.
@@ -209,35 +242,53 @@ class LocalFoundryChatClient:
 
         logger.debug(f"🏠 LOCAL: Generating response with {self.model_name} (max_tokens={max_tokens})")
 
-        try:
-            # Call local AI Foundry server
-            response = self.client.complete(
-                messages=inference_messages,
-                model=self.model_name,
-                temperature=temperature,
-                max_tokens=max_tokens
-            )
+        # Retry logic: try once, and if connection error, re-detect and retry
+        max_attempts = 2
+        for attempt in range(1, max_attempts + 1):
+            try:
+                # Call local AI Foundry server
+                response = self.client.complete(
+                    messages=inference_messages,
+                    model=self.model_name,
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
 
-            # Extract response text
-            response_text = response.choices[0].message.content
+                # Extract response text
+                response_text = response.choices[0].message.content
 
-            if not response_text:
-                response_text = "I apologize, but I couldn't generate a response. Could you rephrase your question?"
+                if not response_text:
+                    response_text = "I apologize, but I couldn't generate a response. Could you rephrase your question?"
 
-            logger.debug(f"🏠 LOCAL: Generated {len(response_text)} characters")
+                logger.debug(f"🏠 LOCAL: Generated {len(response_text)} characters")
 
-            # Return ChatResponse object
-            return ChatResponse(text=response_text)
+                # Return ChatResponse object
+                return ChatResponse(text=response_text)
 
-        except Exception as e:
-            logger.error(f"Error generating local response: {e}", exc_info=True)
-            # Return error response with helpful message
-            error_msg = (
-                f"I encountered an error connecting to the local AI Foundry server:\n"
-                f"{str(e)}\n\n"
-                f"{get_foundry_setup_instructions()}"
-            )
-            return ChatResponse(text=error_msg)
+            except Exception as e:
+                error_type = type(e).__name__
+                is_connection_error = "connection" in str(e).lower() or "not found" in str(e).lower()
+
+                if attempt < max_attempts and is_connection_error:
+                    # Retry: Re-detect endpoint/model and try again
+                    logger.warning(f"Connection error on attempt {attempt}: {error_type}")
+                    logger.info("Retrying with re-detected endpoint...")
+
+                    if self._reinitialize_connection():
+                        continue  # Retry with new endpoint
+                    else:
+                        # Re-detection failed, fall through to error handling
+                        pass
+
+                # Final attempt failed or non-connection error
+                logger.error(f"Error generating local response (attempt {attempt}): {e}", exc_info=True)
+                # Return error response with helpful message
+                error_msg = (
+                    f"I encountered an error connecting to the local AI Foundry server:\n"
+                    f"{str(e)}\n\n"
+                    f"{get_foundry_setup_instructions()}"
+                )
+                return ChatResponse(text=error_msg)
 
     # Additional methods for compatibility with Agent Framework
 

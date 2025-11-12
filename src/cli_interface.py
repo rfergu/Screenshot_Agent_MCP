@@ -21,15 +21,17 @@ logger = get_logger(__name__)
 class CLIInterface:
     """Interactive command-line interface for screenshot organization."""
 
-    def __init__(self, session_id: Optional[str] = None, mode: Optional[str] = None):
+    def __init__(self, session_id: Optional[str] = None, mode: Optional[str] = None,
+                 local_config: Optional[dict] = None):
         """Initialize CLI interface.
 
         Args:
             session_id: Optional session ID to resume. If None, creates new session.
             mode: Operation mode ("local", "remote", or None for auto-detect).
+            local_config: Optional dict with local mode config (port, endpoint).
         """
         self.console = Console()
-        self.agent_client = AgentClient(mode=mode)
+        self.agent_client = AgentClient(mode=mode, local_config=local_config)
         self.session_manager = SessionManager()
         self.session_id = session_id or self.session_manager.create_session()
         self.thread = None  # Will be initialized in chat_loop
@@ -210,6 +212,15 @@ code, errors, documentation, design, communication, memes, other
     help="Operation mode: 'local' (Phi-3 on-device) or 'remote' (Azure OpenAI)"
 )
 @click.option(
+    "--port",
+    type=int,
+    help="Port for local Foundry service (e.g., 60779). Auto-detected if not specified."
+)
+@click.option(
+    "--endpoint",
+    help="Full endpoint URL for local Foundry service (overrides --port). Auto-detected if not specified."
+)
+@click.option(
     "--config",
     type=click.Path(exists=True, path_type=Path),
     help="Path to custom config file"
@@ -219,7 +230,8 @@ code, errors, documentation, design, communication, memes, other
     is_flag=True,
     help="Enable debug logging"
 )
-def main(session: Optional[str], mode: Optional[str], config: Optional[Path], debug: bool):
+def main(session: Optional[str], mode: Optional[str], port: Optional[int],
+         endpoint: Optional[str], config: Optional[Path], debug: bool):
     """Interactive AI assistant for organizing screenshots.
 
     Supports two operation modes:
@@ -238,6 +250,16 @@ def main(session: Optional[str], mode: Optional[str], config: Optional[Path], de
     Mode Selection:
       • If --mode flag provided: Uses specified mode
       • If no flag: Interactive prompt at startup
+
+    Local Mode Endpoint Options:
+      • Auto-detect (default): Detects port via 'foundry service status'
+      • --port PORT: Use specific port (e.g., --port 60779)
+      • --endpoint URL: Use full endpoint URL
+
+    Examples:
+      python -m src.cli_interface --mode local                    # Auto-detect
+      python -m src.cli_interface --mode local --port 60779       # Explicit port
+      python -m src.cli_interface --mode local --endpoint URL     # Full URL
 
     Required environment variables for REMOTE mode:
       AZURE_AI_CHAT_ENDPOINT - Your Azure endpoint (Foundry or Azure OpenAI)
@@ -319,9 +341,16 @@ def main(session: Optional[str], mode: Optional[str], config: Optional[Path], de
             console.print("Tip: Use [bold]--mode local[/bold] for fully on-device operation (no API keys needed)")
             sys.exit(1)
 
+    # Build endpoint configuration for local mode
+    local_config = {}
+    if port:
+        local_config["port"] = port
+    if endpoint:
+        local_config["endpoint"] = endpoint
+
     # Create and run CLI
     try:
-        cli = CLIInterface(session_id=session, mode=mode)
+        cli = CLIInterface(session_id=session, mode=mode, local_config=local_config if local_config else None)
         asyncio.run(cli.chat_loop())
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)

@@ -62,20 +62,22 @@ Guidelines:
 
 Be conversational, helpful, and efficient. Focus on making screenshot organization easy for the user."""
 
-    def __init__(self, mode: Optional[str] = None, endpoint: Optional[str] = None, credential: Optional[str] = None):
+    def __init__(self, mode: Optional[str] = None, endpoint: Optional[str] = None,
+                 credential: Optional[str] = None, local_config: Optional[dict] = None):
         """Initialize agent client with local or remote AI.
 
         Args:
             mode: Operation mode ("local", "remote", or None for auto-detect).
             endpoint: Azure endpoint (remote mode only). If None, reads from env.
             credential: Azure API key (remote mode only). If None, reads from env.
+            local_config: Optional dict with local mode config (port, endpoint).
         """
         # Determine operation mode
         self.mode = self._detect_mode(mode)
 
         # Initialize appropriate chat client based on mode
         if self.mode == "local":
-            self._init_local_client()
+            self._init_local_client(local_config=local_config)
         else:
             self._init_remote_client(endpoint, credential)
 
@@ -120,16 +122,40 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
 
         return detected_mode
 
-    def _init_local_client(self):
-        """Initialize local AI Foundry chat client."""
+    def _init_local_client(self, local_config: Optional[dict] = None):
+        """Initialize local AI Foundry chat client.
+
+        Args:
+            local_config: Optional dict with 'port' or 'endpoint' keys for explicit configuration.
+        """
         try:
             from phi3_chat_client import LocalFoundryChatClient
 
-            # Get local endpoint configuration (defaults to "auto" for auto-detection)
-            endpoint_config = config_get("local.endpoint", "auto")
+            # Determine endpoint with priority:
+            # 1. Explicit endpoint from CLI (highest priority)
+            # 2. Port from CLI (build endpoint)
+            # 3. Config file setting
+            # 4. Auto-detect (default)
+            endpoint_config = "auto"
+
+            if local_config:
+                if "endpoint" in local_config:
+                    # Explicit endpoint override
+                    endpoint_config = local_config["endpoint"]
+                    logger.info(f"Using CLI endpoint: {endpoint_config}")
+                elif "port" in local_config:
+                    # Build endpoint from port
+                    port = local_config["port"]
+                    endpoint_config = f"http://127.0.0.1:{port}/v1/chat/completions"
+                    logger.info(f"Using CLI port {port}: {endpoint_config}")
+
+            # Fall back to config file if no CLI override
+            if endpoint_config == "auto":
+                endpoint_config = config_get("local.endpoint", "auto")
+
             model = config_get("local.model", "phi-4")
 
-            # Initialize AI Foundry local client (will auto-detect endpoint if "auto")
+            # Initialize AI Foundry local client
             self.chat_client = LocalFoundryChatClient(endpoint=endpoint_config, model=model)
             self.model_name = f"{model} (local)"
 
@@ -141,6 +167,8 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
             logger.info(f"   - Endpoint: {self.endpoint}")
             if self.chat_client.auto_detected:
                 logger.info("   - Endpoint auto-detected via 'foundry service status'")
+            elif local_config:
+                logger.info("   - Endpoint from CLI arguments")
             logger.info(f"   - Vision model: phi-3-vision-mlx (for screenshots)")
             logger.info("   - Zero cost per query")
             logger.info("   - Complete privacy (no data leaves device)")
