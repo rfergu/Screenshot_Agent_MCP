@@ -4,7 +4,7 @@
 Screenshot Organizer with Local AI Processing
 
 ## Feature Description
-A terminal-based tool that intelligently organizes screenshots using local AI models (OCR and Phi-3 Vision), with Azure AI Foundry orchestrating the conversation through MCP protocol. The system prioritizes local processing to maintain privacy and minimize costs.
+A terminal-based tool that intelligently organizes screenshots using local AI models (OCR and Phi-3 Vision), with Azure AI (Foundry or Azure OpenAI) orchestrating the conversation through MCP protocol. The system prioritizes local processing to maintain privacy and minimize costs.
 
 ## User Stories
 
@@ -41,7 +41,7 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 **So that** I can easily organize screenshots without memorizing commands
 
 **Acceptance Criteria:**
-- Azure AI Foundry models understand natural language requests
+- Azure AI models (via Foundry or Azure OpenAI) understand natural language requests
 - Provides helpful suggestions and clarifications
 - Explains what the tool is doing at each step
 - Offers to process individual files or batches
@@ -70,7 +70,7 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 - Shows processing method (OCR or Vision) for each file
 - Displays processing time per file
 - Shows batch statistics (files per method, total time)
-- Reports cost savings by using local processing
+- Reports cost savings by using local processing (only metadata sent to Azure AI)
 - Indicates when vision model is downloading/loading
 
 ## Functional Requirements
@@ -111,12 +111,18 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 - Generate descriptive filenames (no spaces, filesystem-safe)
 - Handle duplicate filenames gracefully
 
-### FR-006: Azure AI Foundry Integration
-- Use Azure AI Foundry models (GPT-4, GPT-4o, etc.) for natural language understanding
+### FR-006: Azure AI Integration (Foundry or Azure OpenAI)
+- Support **either** Azure AI Foundry serverless endpoints **or** Azure OpenAI resource endpoints
+- Automatically detect endpoint type based on URL format:
+  - AI Foundry: `https://xxx.services.ai.azure.com/api/projects/xxx`
+  - Azure OpenAI: `https://xxx.cognitiveservices.azure.com`
+- Use Azure models (GPT-4, GPT-4o, etc.) for natural language understanding
 - Orchestrate MCP tool calls based on user intent
 - Provide conversational responses
 - Maintain session context
-- Support both API key and Azure CLI authentication
+- Authentication support:
+  - Azure OpenAI: API key required
+  - AI Foundry: API key or Azure CLI authentication (DefaultAzureCredential)
 
 ### FR-007: Error Handling
 - Gracefully handle OCR failures
@@ -140,7 +146,7 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 ### NFR-002: Privacy
 - No image data sent to external services
 - All vision processing done locally
-- Only text metadata sent to Azure AI Foundry for orchestration
+- Only text metadata sent to Azure AI (Foundry or Azure OpenAI) for orchestration
 
 ### NFR-003: Usability
 - Clear command-line interface
