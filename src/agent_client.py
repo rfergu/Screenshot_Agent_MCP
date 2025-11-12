@@ -125,21 +125,25 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
         try:
             from phi3_chat_client import LocalFoundryChatClient
 
-            # Get local endpoint configuration
-            endpoint = config_get("local.endpoint", "http://127.0.0.1:5272/v1/chat/completions")
+            # Get local endpoint configuration (defaults to "auto" for auto-detection)
+            endpoint_config = config_get("local.endpoint", "auto")
             model = config_get("local.model", "phi-4")
 
-            # Initialize AI Foundry local client
-            self.chat_client = LocalFoundryChatClient(endpoint=endpoint, model=model)
+            # Initialize AI Foundry local client (will auto-detect endpoint if "auto")
+            self.chat_client = LocalFoundryChatClient(endpoint=endpoint_config, model=model)
             self.model_name = f"{model} (local)"
-            self.endpoint = endpoint
+
+            # Get the actual endpoint (after auto-detection)
+            self.endpoint = self.chat_client.endpoint
 
             logger.info("🏠 LOCAL MODE: Using AI Foundry local inference")
             logger.info(f"   - Chat model: {model}")
+            logger.info(f"   - Endpoint: {self.endpoint}")
+            if self.chat_client.auto_detected:
+                logger.info("   - Endpoint auto-detected via 'foundry service status'")
             logger.info(f"   - Vision model: phi-3-vision-mlx (for screenshots)")
             logger.info("   - Zero cost per query")
             logger.info("   - Complete privacy (no data leaves device)")
-            logger.info("   - Requires: foundry run phi-4")
 
         except ImportError as e:
             logger.error(f"Failed to import LocalFoundryChatClient: {e}")

@@ -16,6 +16,7 @@ from agent_framework._types import ChatMessage, ChatResponse
 from azure.ai.inference import ChatCompletionsClient
 from azure.ai.inference.models import SystemMessage, UserMessage, AssistantMessage
 from utils.logger import get_logger
+from utils.foundry_local import detect_foundry_endpoint, get_foundry_setup_instructions
 
 logger = get_logger(__name__)
 
@@ -34,18 +35,45 @@ class LocalFoundryChatClient:
     """
 
     def __init__(self,
-                 endpoint: str = "http://127.0.0.1:5272/v1/chat/completions",
+                 endpoint: Optional[str] = "auto",
                  model: str = "phi-4",
                  **kwargs):
         """Initialize local AI Foundry chat client.
 
         Args:
-            endpoint: Local inference server endpoint (default: localhost:5272)
+            endpoint: Local inference server endpoint. Options:
+                - "auto" (default): Auto-detect via 'foundry service status'
+                - Specific URL: e.g., "http://127.0.0.1:60779/v1/chat/completions"
+                - None: Same as "auto"
             model: Model name to use (default: phi-4)
             **kwargs: Additional configuration options (for compatibility).
         """
-        self.endpoint = endpoint
         self.model_name = model
+        self.endpoint = None
+        self.auto_detected = False
+
+        # Endpoint resolution with fallback chain:
+        # 1. Auto-detect via 'foundry service status' (if endpoint is "auto" or None)
+        # 2. Use provided endpoint (if specific URL given)
+        # 3. Fall back to default port with warning
+        if endpoint is None or endpoint == "auto":
+            logger.debug("Attempting to auto-detect Foundry Local endpoint...")
+            detected_endpoint = detect_foundry_endpoint()
+
+            if detected_endpoint:
+                self.endpoint = detected_endpoint
+                self.auto_detected = True
+                logger.info(f"✓ Auto-detected Foundry endpoint: {self.endpoint}")
+            else:
+                # Fallback to default
+                self.endpoint = "http://127.0.0.1:5272/v1/chat/completions"
+                logger.warning("⚠️  Could not auto-detect Foundry endpoint, using default port 5272")
+                logger.warning("    This may not work if service is on a different port")
+                logger.info("    Run 'foundry service status' to see actual endpoint")
+        else:
+            # Use provided endpoint
+            self.endpoint = endpoint
+            logger.info(f"Using configured endpoint: {self.endpoint}")
 
         # Initialize Azure AI Inference client (works with local server too)
         self.client = ChatCompletionsClient(
@@ -191,10 +219,9 @@ class LocalFoundryChatClient:
             logger.error(f"Error generating local response: {e}", exc_info=True)
             # Return error response with helpful message
             error_msg = (
-                f"I encountered an error connecting to the local AI Foundry server: {str(e)}\n\n"
-                "Make sure the inference server is running:\n"
-                "  foundry run phi-4\n\n"
-                "Or switch to remote mode: --mode remote"
+                f"I encountered an error connecting to the local AI Foundry server:\n"
+                f"{str(e)}\n\n"
+                f"{get_foundry_setup_instructions()}"
             )
             return ChatResponse(text=error_msg)
 

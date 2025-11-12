@@ -4,7 +4,7 @@ These tests are designed to fail loudly if the local environment isn't configure
 Unlike integration tests that skip gracefully, smoke tests expect:
 - AI Foundry CLI installed
 - Phi-4 model downloaded
-- Inference server running (foundry run phi-4)
+- Foundry service running (foundry service start + foundry model load phi-4)
 
 Run these tests to verify your local setup works end-to-end.
 Skip with: pytest -m "not smoke"
@@ -20,6 +20,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from agent_framework._types import ChatMessage, Role
 from phi3_chat_client import LocalFoundryChatClient
 
+# Note: Smoke tests use "auto" endpoint detection to test the real workflow
+
 
 @pytest.mark.smoke
 class TestLocalModeSmoke:
@@ -32,15 +34,21 @@ class TestLocalModeSmoke:
         This test will FAIL (not skip) if the server is not running.
         Expected setup:
         - AI Foundry CLI installed: brew install azure/ai-foundry/foundry
-        - Phi-4 downloaded: foundry model get phi-4
-        - Server running: foundry run phi-4
+        - Phi-4 model downloaded: foundry model get phi-4
+        - Service running: foundry service start
+        - Model loaded: foundry model load phi-4
         """
-        client = LocalFoundryChatClient()
+        client = LocalFoundryChatClient(endpoint="auto")
+
+        # Verify auto-detection worked
+        assert client.endpoint is not None, "Auto-detection failed to find endpoint"
+        assert "127.0.0.1" in client.endpoint, f"Invalid endpoint: {client.endpoint}"
 
         # This should succeed, not skip
         assert client._check_server_connection(), (
             "AI Foundry server is not running!\n"
-            "Start with: foundry run phi-4\n"
+            "Start with: foundry service start\n"
+            "Then: foundry model load phi-4\n"
             "Or skip smoke tests with: pytest -m 'not smoke'"
         )
 
@@ -53,11 +61,11 @@ class TestLocalModeSmoke:
         - Message conversion is broken
         - Response handling is broken
         """
-        client = LocalFoundryChatClient()
+        client = LocalFoundryChatClient(endpoint="auto")
 
         # Verify server is running first
         assert client._check_server_connection(), (
-            "AI Foundry server is not running! Start with: foundry run phi-4"
+            "AI Foundry server is not running! Start with: foundry service start"
         )
 
         # Simple math query
@@ -80,7 +88,7 @@ class TestLocalModeSmoke:
 
         This tests that the message conversion handles all role types correctly.
         """
-        client = LocalFoundryChatClient()
+        client = LocalFoundryChatClient(endpoint="auto")
 
         assert client._check_server_connection(), (
             "AI Foundry server is not running! Start with: foundry run phi-4"
@@ -112,7 +120,7 @@ class TestLocalModeSmoke:
 
         This would catch the 'Role' object has no attribute 'lower' bug.
         """
-        client = LocalFoundryChatClient()
+        client = LocalFoundryChatClient(endpoint="auto")
 
         # Test all role types
         for role in [Role.USER, Role.SYSTEM, Role.ASSISTANT]:

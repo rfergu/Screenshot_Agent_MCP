@@ -3,6 +3,7 @@
 import pytest
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -11,13 +12,16 @@ from agent_framework._types import ChatMessage, Role
 from azure.ai.inference.models import UserMessage, SystemMessage, AssistantMessage
 from phi3_chat_client import LocalFoundryChatClient
 
+# Test endpoint to use (avoids auto-detection in tests)
+TEST_ENDPOINT = "http://127.0.0.1:5272/v1/chat/completions"
+
 
 class TestMessageConversion:
     """Test message conversion for LocalFoundryChatClient."""
 
     def test_convert_string_message(self):
         """Test converting a simple string to inference format."""
-        client = LocalFoundryChatClient()
+        client = LocalFoundryChatClient(endpoint=TEST_ENDPOINT)
         result = client._convert_to_inference_messages("Hello world")
 
         assert len(result) == 1
@@ -26,7 +30,7 @@ class TestMessageConversion:
 
     def test_convert_chat_message_user(self):
         """Test converting ChatMessage with user role."""
-        client = LocalFoundryChatClient()
+        client = LocalFoundryChatClient(endpoint=TEST_ENDPOINT)
         msg = ChatMessage(role=Role.USER, text="What is 5+5?")
 
         result = client._convert_to_inference_messages(msg)
@@ -37,7 +41,7 @@ class TestMessageConversion:
 
     def test_convert_chat_message_system(self):
         """Test converting ChatMessage with system role."""
-        client = LocalFoundryChatClient()
+        client = LocalFoundryChatClient(endpoint=TEST_ENDPOINT)
         msg = ChatMessage(role=Role.SYSTEM, text="You are a helpful assistant.")
 
         result = client._convert_to_inference_messages(msg)
@@ -48,7 +52,7 @@ class TestMessageConversion:
 
     def test_convert_chat_message_assistant(self):
         """Test converting ChatMessage with assistant role."""
-        client = LocalFoundryChatClient()
+        client = LocalFoundryChatClient(endpoint=TEST_ENDPOINT)
         msg = ChatMessage(role=Role.ASSISTANT, text="I can help you with that.")
 
         result = client._convert_to_inference_messages(msg)
@@ -59,7 +63,7 @@ class TestMessageConversion:
 
     def test_convert_message_list(self):
         """Test converting a list of different message types."""
-        client = LocalFoundryChatClient()
+        client = LocalFoundryChatClient(endpoint=TEST_ENDPOINT)
         messages = [
             ChatMessage(role=Role.SYSTEM, text="You are helpful."),
             ChatMessage(role=Role.USER, text="What is 5+5?"),
@@ -78,7 +82,7 @@ class TestMessageConversion:
 
     def test_convert_dict_messages(self):
         """Test converting dict messages (legacy format)."""
-        client = LocalFoundryChatClient()
+        client = LocalFoundryChatClient(endpoint=TEST_ENDPOINT)
         messages = [
             {"role": "system", "content": "You are helpful."},
             {"role": "user", "content": "Hello"},
@@ -92,7 +96,7 @@ class TestMessageConversion:
 
     def test_convert_empty_text(self):
         """Test handling of empty text."""
-        client = LocalFoundryChatClient()
+        client = LocalFoundryChatClient(endpoint=TEST_ENDPOINT)
         msg = ChatMessage(role=Role.USER, text=None)
 
         result = client._convert_to_inference_messages(msg)
@@ -112,7 +116,7 @@ class TestErrorHandling:
         This test should PASS even when server is not running - it verifies
         the error handling works correctly.
         """
-        client = LocalFoundryChatClient()
+        client = LocalFoundryChatClient(endpoint=TEST_ENDPOINT)
 
         # Only run this test if server is NOT running
         if client._check_server_connection():
@@ -125,7 +129,8 @@ class TestErrorHandling:
         assert response is not None
         assert response.text is not None
         assert "AI Foundry server" in response.text
-        assert "foundry run phi-4" in response.text
+        assert "foundry service start" in response.text or "foundry run phi-4" in response.text
+        assert "foundry model load phi-4" in response.text or "foundry run phi-4" in response.text
         assert "--mode remote" in response.text
 
 
@@ -140,7 +145,7 @@ class TestLocalModeIntegration:
         Requires: foundry run phi-4
         This test will be skipped if server is not running.
         """
-        client = LocalFoundryChatClient()
+        client = LocalFoundryChatClient(endpoint=TEST_ENDPOINT)
 
         # Check if server is accessible
         if not client._check_server_connection():
@@ -161,7 +166,7 @@ class TestLocalModeIntegration:
         Requires: foundry run phi-4
         This test will be skipped if server is not running.
         """
-        client = LocalFoundryChatClient()
+        client = LocalFoundryChatClient(endpoint=TEST_ENDPOINT)
 
         if not client._check_server_connection():
             pytest.skip("AI Foundry server not running (foundry run phi-4)")

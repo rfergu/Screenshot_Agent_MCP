@@ -22,8 +22,12 @@ demo:
 local:
   enabled: true
 
-  # Chat model: AI Foundry Phi-4 (requires `foundry run phi-4`)
-  endpoint: "http://127.0.0.1:5272/v1/chat/completions"
+  # Chat model: AI Foundry Phi-4 (requires foundry service to be running)
+  # Endpoint options:
+  #   - "auto" (recommended): Auto-detect via 'foundry service status'
+  #   - Specific URL: e.g., "http://127.0.0.1:60779/v1/chat/completions"
+  # Note: Foundry Local uses dynamically-allocated ports, so "auto" is best
+  endpoint: "auto"
   model: "phi-4"
 
   # Vision model: Phi-3 Vision MLX (for screenshot analysis only)
