@@ -1,16 +1,16 @@
-# Demo Scripts
+# Example Scripts
 
-This directory contains demonstration scripts showcasing the screenshot organizer's dual-mode capabilities.
+This directory contains example scripts for testing and demonstrating the screenshot organizer's capabilities.
 
-## Available Demos
+## Available Examples
 
 ### demo_comparison.py - Side-by-Side Mode Comparison
 
-Interactive demo that runs the same query through both LOCAL (Phi-3) and REMOTE (Azure OpenAI) modes, comparing:
+Compares local (Phi-4-mini) vs remote (Azure OpenAI GPT-4o) modes side-by-side:
 - Response quality
 - Latency
-- Cost
-- Privacy implications
+- Cost implications
+- Privacy trade-offs
 
 **Usage:**
 ```bash
@@ -18,141 +18,168 @@ python scripts/demo_comparison.py
 ```
 
 **Requirements:**
-- For LOCAL mode: `pip install phi-3-vision-mlx`
-- For REMOTE mode: Azure OpenAI credentials configured
+- **Local mode**: Azure AI Foundry CLI with Phi-4-mini running
+- **Remote mode**: Azure OpenAI credentials configured
 
 **What it demonstrates:**
 - Same Microsoft Agent Framework interface for both modes
-- Same tool integration (analyze_screenshot, batch_process, organize_file)
-- Trade-offs between local (privacy, zero cost) and remote (capability, latency)
+- Same conversational agent system (7-phase workflow)
+- Trade-offs: local (privacy, testing) vs remote (production, full capabilities)
+
+---
+
+### Manual Testing Scripts
+
+These scripts allow manual testing of specific components:
+
+#### test_integration.py
+Tests the complete MCP + Agent Framework integration:
+- Agent Framework starts with MCP tools
+- GPT-4 can call MCP tools via protocol
+- File system access mediated through MCP
+
+```bash
+python scripts/test_integration.py
+```
+
+#### test_mcp_client.py
+Tests MCP client wrapper functionality:
+- MCP server subprocess launches correctly
+- Tools are callable via MCP protocol
+- Async tool execution works
+
+```bash
+python scripts/test_mcp_client.py
+```
+
+#### test_mcp_wrapper.py
+Tests MCP wrapper integration:
+- Tool registration with MCP server
+- Tool call serialization/deserialization
+- Error handling in tool calls
+
+```bash
+python scripts/test_mcp_wrapper.py
+```
+
+---
 
 ## Mode Selection
 
-The screenshot organizer supports three ways to select the operation mode:
+The screenshot organizer supports two operation modes:
 
-### 1. CLI Flag (Highest Priority)
+### Remote Mode (Production - Default)
+**Purpose:** Full AI agent capabilities with reliable tool support
+
+**Setup:**
 ```bash
-# Force local mode
-python src/cli_interface.py --mode local
-
-# Force remote mode
-python src/cli_interface.py --mode remote
-```
-
-### 2. Environment Variable
-```bash
-# Set mode via environment
-export SCREENSHOT_ORGANIZER_MODE=local
-python src/cli_interface.py
-
-# Or inline
-SCREENSHOT_ORGANIZER_MODE=remote python src/cli_interface.py
-```
-
-### 3. Configuration File (Lowest Priority)
-Edit `config/config.yaml`:
-```yaml
-demo:
-  mode: "local"  # or "remote"
-```
-
-## Scenario Presets
-
-The configuration file includes three demo scenarios optimized for different purposes:
-
-### Privacy First (Fully Local)
-```bash
-# Edit config/config.yaml to use 'privacy_first' preset
-demo:
-  mode: "local"
-  show_model_name: true
-  show_cost_estimate: true  # Shows $0.00 for local
-```
-
-**Highlights:**
-- Zero cost per query
-- Complete privacy (no data leaves device)
-- No API keys required
-- ~8GB model loaded on first use
-
-### Cloud Powered (Fully Remote)
-```bash
-# Edit config/config.yaml to use 'cloud_powered' preset
-demo:
-  mode: "remote"
-  show_model_name: true
-  show_latency: true
-```
-
-**Highlights:**
-- Most capable models (GPT-4, GPT-4o, etc.)
-- Faster cold-start (no model loading)
-- Requires Azure credentials
-
-### Comparison Mode (Auto-switch)
-```bash
-# Edit config/config.yaml to use 'comparison' preset
-demo:
-  mode: "auto"  # Not yet implemented - falls back to remote
-  show_model_name: true
-  show_latency: true
-  show_cost_estimate: true
-```
-
-**Note:** Auto mode (local → remote fallback) is planned but not yet implemented.
-
-## Local Mode Requirements
-
-To use local mode, install the Phi-3 Vision MLX package:
-
-```bash
-pip install phi-3-vision-mlx
-```
-
-**System Requirements:**
-- macOS with Apple Silicon (M1/M2/M3)
-- ~8GB free RAM for model
-- ~10GB disk space for model files
-
-**First Use:**
-- Model downloads automatically (~4GB)
-- First query will be slow (model loading)
-- Subsequent queries are much faster
-
-## Remote Mode Requirements
-
-Set these environment variables:
-
-```bash
-export AZURE_AI_CHAT_ENDPOINT="https://xxx.openai.azure.com"
+export AZURE_AI_CHAT_ENDPOINT="https://your-project.services.ai.azure.com/api/projects/your-project"
 export AZURE_AI_MODEL_DEPLOYMENT="gpt-4o"
-export AZURE_AI_CHAT_KEY="your-api-key"
+export AZURE_AI_CHAT_KEY="your_api_key"
 ```
 
-Or use Azure CLI authentication:
+**Features:**
+- ✅ Azure OpenAI GPT-4o with complete tool calling
+- ✅ Full MCP tool support (5 file operation tools)
+- ✅ Screenshot analysis (OCR + Azure GPT-4o Vision)
+- ✅ Complete file organization capabilities
+- ✅ Proactive conversational UX (7-phase workflow)
+
+**CLI:**
 ```bash
-az login
-# Then omit AZURE_AI_CHAT_KEY - uses DefaultAzureCredential
+# Remote mode is default
+python -m src.cli_interface
+
+# Or programmatically:
+from agent_client import AgentClient
+client = AgentClient(mode="remote")
 ```
 
-## Demo Tips
+### Local Mode (Testing/Debugging Only)
+**Purpose:** Quick testing of conversation flow without API costs
 
-1. **Start with Remote Mode** - Faster cold-start, no model download
-2. **Try Local Mode** - Shows privacy-first, zero-cost operation
-3. **Compare Side-by-Side** - Use `demo_comparison.py` to see differences
-4. **Show Cost Savings** - Enable `show_cost_estimate` in config
-5. **Emphasize Privacy** - Local mode = zero data leaves device
+**Setup:**
+```bash
+# Install Azure AI Foundry CLI (macOS)
+brew install azure/ai-foundry/foundry
+
+# Download and start Phi-4-mini
+foundry model get phi-4-mini
+foundry service start
+foundry model load phi-4-mini
+
+# Verify it's running
+foundry service status
+```
+
+**Features:**
+- ✅ Basic chat for testing agent instructions
+- ✅ Fast iteration without API costs
+- ❌ NO tool support (testing conversation flow only)
+- ❌ NO screenshot analysis
+- ❌ NO file organization
+
+**CLI:**
+```bash
+# Use --local flag
+python -m src.cli_interface --local
+
+# Or programmatically:
+from agent_client import AgentClient
+client = AgentClient(mode="local")
+```
+
+**Use Cases:**
+- Testing system prompts
+- Validating agent instructions
+- Fast iteration on conversational UX
+- Debugging conversation flow
+
+---
 
 ## Architecture Highlights
 
-Both modes use:
-- **Same Microsoft Agent Framework interface**
-- **Same tool integration** (embedded MCP tools)
+Both modes use the **same Microsoft Agent Framework interface:**
+
 - **Same conversation management** (AgentThread serialization)
-- **Same CLI interface** (just different --mode flag)
+- **Same system prompts** (7-phase conversational workflow)
+- **Same CLI interface** (just different `--local` flag)
 
-The only difference:
-- Local: `Phi3LocalChatClient` wraps phi-3-vision-mlx
-- Remote: `AzureOpenAIChatClient` connects to Azure OpenAI
+**The only difference:**
+- **Local**: `LocalFoundryChatClient` connects to Foundry inference server (Phi-4-mini)
+- **Remote**: `AzureOpenAIChatClient` connects to Azure OpenAI (GPT-4o)
 
-This demonstrates the flexibility of Microsoft Agent Framework for supporting multiple AI backends with zero code duplication.
+In remote mode, **Agent Framework WITH MCP Client Integration** is active:
+```
+Agent Framework (Brain 🧠)
+    ↓ contains
+MCP Client Wrapper (EMBEDDED)
+    ↓ calls via stdio
+MCP Server (Hands 🤲)
+    ↓ operates on
+File System
+```
+
+This demonstrates:
+- **Agent Framework capabilities**: Intelligent orchestration, tool calling
+- **MCP protocol integration**: Standardized tool interface
+- **Dual-mode flexibility**: Same framework, different backends
+
+---
+
+## Demo Tips
+
+1. **Start with Remote Mode** - Shows full production capabilities
+2. **Try Local Mode** - Shows testing/debugging workflow
+3. **Compare Side-by-Side** - Use `demo_comparison.py` to see differences
+4. **Emphasize Architecture** - Show MCP protocol in action (remote mode)
+5. **Show Proactive UX** - Agent introduces itself and guides user through 7 phases
+
+---
+
+## Notes
+
+- For production work, **always use remote mode** (reliable tool calling)
+- Local mode is **testing only** (no file operations, no screenshot analysis)
+- All manual test scripts require remote mode (MCP tools active)
+- See main [README.md](../README.md) for complete installation instructions
