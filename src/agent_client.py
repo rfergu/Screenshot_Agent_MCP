@@ -367,9 +367,17 @@ Be conversational and helpful within these limitations."""
         try:
             # Track message count before run to identify new messages
             messages_before = len(thread.messages) if hasattr(thread, 'messages') else 0
+            logger.info(f"Messages before: {messages_before}")
 
             # Agent Framework handles all tool calling automatically
             response = await self.agent.run(user_message, thread=thread)
+
+            # Debug: inspect response object
+            logger.info(f"Response type: {type(response)}")
+            logger.info(f"Response has text: {hasattr(response, 'text')}")
+            if hasattr(response, 'text'):
+                logger.info(f"Response.text length: {len(response.text) if response.text else 0}")
+            logger.info(f"Messages after: {len(thread.messages) if hasattr(thread, 'messages') else 0}")
 
             # Build response with tool call transparency
             # Only look at NEW messages from this turn
@@ -378,8 +386,12 @@ Be conversational and helpful within these limitations."""
             if hasattr(thread, 'messages') and len(thread.messages) > messages_before:
                 # Get only the new messages from this turn
                 new_messages = thread.messages[messages_before:]
+                logger.info(f"Processing {len(new_messages)} new messages")
 
-                for msg in new_messages:
+                for idx, msg in enumerate(new_messages):
+                    logger.info(f"Message {idx}: role={getattr(msg, 'role', 'unknown')}, has_tool_calls={hasattr(msg, 'tool_calls')}")
+                    if hasattr(msg, 'tool_calls'):
+                        logger.info(f"  Tool calls count: {len(msg.tool_calls) if msg.tool_calls else 0}")
                     # Show tool calls
                     if hasattr(msg, 'tool_calls') and msg.tool_calls:
                         for tool_call in msg.tool_calls:
