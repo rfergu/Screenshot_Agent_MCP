@@ -74,7 +74,7 @@ class MCPClientWrapper:
         # Pass current environment to subprocess so it has access to Azure credentials
         server_params = StdioServerParameters(
             command=sys.executable,  # Use same Python interpreter
-            args=["-m", "src", "server"],
+            args=["-m", "src.screenshot_mcp_server"],
             cwd=str(project_root),
             env=dict(os.environ)  # Pass parent's environment variables
         )
