@@ -365,42 +365,68 @@ Be conversational and helpful within these limitations."""
         logger.debug(f"User message: {user_message}")
 
         try:
+            # Track message count before run to identify new messages
+            messages_before = len(thread.messages) if hasattr(thread, 'messages') else 0
+
             # Agent Framework handles all tool calling automatically
             response = await self.agent.run(user_message, thread=thread)
 
             # Build response with tool call transparency
+            # Only look at NEW messages from this turn
             response_parts = []
 
-            # Check if there were tool calls in the response
-            # Agent Framework stores messages in the thread
-            if hasattr(thread, 'messages') and len(thread.messages) > 0:
-                # Look at recent messages for tool calls
-                for msg in thread.messages[-10:]:  # Check last 10 messages
+            if hasattr(thread, 'messages') and len(thread.messages) > messages_before:
+                # Get only the new messages from this turn
+                new_messages = thread.messages[messages_before:]
+
+                for msg in new_messages:
+                    # Show tool calls
                     if hasattr(msg, 'tool_calls') and msg.tool_calls:
                         for tool_call in msg.tool_calls:
                             tool_name = tool_call.function.name if hasattr(tool_call.function, 'name') else 'unknown'
-                            response_parts.append(f"🔧 **Tool Called:** `{tool_name}`")
+                            # Try to get arguments for more detail
+                            try:
+                                import json
+                                args = json.loads(tool_call.function.arguments) if hasattr(tool_call.function, 'arguments') else {}
+                                args_str = json.dumps(args, indent=2)
+                                response_parts.append(f"🔧 **Calling Tool:** `{tool_name}`\n```json\n{args_str}\n```")
+                            except:
+                                response_parts.append(f"🔧 **Calling Tool:** `{tool_name}`")
                             logger.info(f"Tool called: {tool_name}")
 
                     # Show tool results
                     if hasattr(msg, 'role') and msg.role == 'tool':
                         tool_result = msg.content if hasattr(msg, 'content') else 'No result'
-                        # Truncate long results
-                        if len(str(tool_result)) > 500:
-                            tool_result = str(tool_result)[:500] + "... (truncated)"
-                        response_parts.append(f"📊 **Tool Result:**\n```\n{tool_result}\n```")
-                        logger.info(f"Tool result received (length: {len(str(tool_result))})")
+
+                        # Try to parse and format JSON results
+                        try:
+                            import json
+                            result_dict = json.loads(tool_result) if isinstance(tool_result, str) else tool_result
+                            formatted_result = json.dumps(result_dict, indent=2)
+                            # Truncate if too long
+                            if len(formatted_result) > 800:
+                                formatted_result = formatted_result[:800] + "\n... (truncated)"
+                            response_parts.append(f"📊 **Tool Result:**\n```json\n{formatted_result}\n```")
+                        except:
+                            # Not JSON or formatting failed, show as-is
+                            result_str = str(tool_result)
+                            if len(result_str) > 800:
+                                result_str = result_str[:800] + "... (truncated)"
+                            response_parts.append(f"📊 **Tool Result:**\n```\n{result_str}\n```")
+
+                        logger.info(f"Tool result received")
 
             # Add the final assistant response
             response_text = response.text if response.text else ""
+
             if response_parts:
-                # Combine tool calls + final response
-                full_response = "\n\n".join(response_parts) + "\n\n" + response_text
+                # Combine tool calls + results + final response
+                full_response = "\n\n".join(response_parts) + "\n\n**Analysis:**\n\n" + response_text
             else:
                 # No tool calls detected, just return response
                 full_response = response_text
 
-            logger.debug(f"Assistant response: {full_response[:100]}...")
+            logger.debug(f"Full response with {len(response_parts)} tool interactions")
             return full_response
 
         except Exception as e:
