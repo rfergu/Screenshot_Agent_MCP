@@ -430,15 +430,25 @@ Be conversational and helpful within these limitations."""
 
             # Add the final assistant response
             response_text = response.text if response.text else ""
+            logger.info(f"Final response.text: '{response_text[:200] if response_text else '(empty)'}...'")
 
             if response_parts:
                 # Combine tool calls + results + final response
-                full_response = "\n\n".join(response_parts) + "\n\n**Analysis:**\n\n" + response_text
+                if response_text:
+                    full_response = "\n\n".join(response_parts) + "\n\n**Analysis:**\n\n" + response_text
+                else:
+                    # Tool calls happened but no final response from GPT-4
+                    full_response = "\n\n".join(response_parts) + "\n\n**Note:** Waiting for analysis from GPT-4..."
+                    logger.warning("Tool calls executed but no final response text from GPT-4")
             else:
-                # No tool calls detected, just return response
-                full_response = response_text
+                # No tool calls detected
+                if response_text:
+                    full_response = response_text
+                else:
+                    full_response = "(No response generated)"
+                    logger.warning("No tool calls and no response text")
 
-            logger.debug(f"Full response with {len(response_parts)} tool interactions")
+            logger.info(f"Returning response with {len(response_parts)} tool interactions, text length: {len(response_text)}")
             return full_response
 
         except Exception as e:
