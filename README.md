@@ -1,14 +1,16 @@
 # Screenshot Organizer
 
-AI-powered screenshot organization using local models (OCR + Vision) with GPT-4 orchestration.
+AI-powered screenshot organization demonstrating production AI agent development with Microsoft Agent Framework.
 
 ## Features
 
-- **🔍 Smart Analysis**: Uses Tesseract OCR for fast text extraction, falls back to Phi-3 Vision for images
+- **🔍 Smart Analysis**: Uses Tesseract OCR for fast text extraction, GPT-4 Vision or local Phi-3 Vision for image analysis
 - **📁 Automatic Organization**: Categorizes screenshots into code, errors, documentation, design, communication, memes, or other
 - **💬 Natural Language Interface**: Chat with GPT-4 to organize your screenshots conversationally
 - **⚡ Fast Processing**: OCR processes most screenshots in <50ms, vision model in <2s
-- **🔒 Privacy-First**: Local AI processing (OCR + Vision), only GPT-4 orchestration uses OpenAI API
+- **🎯 Dual-Mode Operation**:
+  - **Remote (Production)**: Full AI agent capabilities with reliable tool support
+  - **Local (Testing)**: Quick testing of conversation flow without API costs
 - **📊 Batch Processing**: Organize entire folders of screenshots at once
 - **🗂️ Safe File Handling**: Conflict resolution, optional archiving, and safe filename generation
 
@@ -16,9 +18,15 @@ AI-powered screenshot organization using local models (OCR + Vision) with GPT-4 
 
 ### Prerequisites
 
+**For Remote Mode (Production - Recommended):**
 - Python 3.11+
+- Azure OpenAI credentials (API key or Azure CLI)
 - Tesseract OCR installed
-- OpenAI API key (for GPT-4 orchestration)
+
+**For Local Mode (Testing Only):**
+- Python 3.11+
+- Azure AI Foundry CLI installed
+- Phi-4-mini model downloaded
 
 ### Installation
 
@@ -61,16 +69,28 @@ Download installer from: https://github.com/UB-Mannheim/tesseract/wiki
 
 #### Interactive Chat Interface
 
+**Remote Mode (Production - Recommended):**
 ```bash
-# Start the interactive chat
-python -m src.cli_interface --api-key YOUR_OPENAI_API_KEY
+# Set up Azure OpenAI credentials
+export AZURE_AI_CHAT_ENDPOINT=https://your-endpoint.cognitiveservices.azure.com
+export AZURE_AI_MODEL_DEPLOYMENT=gpt-4o
+export AZURE_AI_CHAT_KEY=your_api_key
 
-# Or set OPENAI_API_KEY environment variable
-export OPENAI_API_KEY=your_key_here
-python -m src.cli_interface
+# Start the interactive chat
+python -m src.cli_interface --mode remote
 ```
 
-**Example conversation:**
+**Local Mode (Testing Only):**
+```bash
+# Start AI Foundry service
+foundry service start
+foundry model load phi-4-mini
+
+# Start in local mode
+python -m src.cli_interface --mode local
+```
+
+**Example conversation (Remote Mode):**
 ```
 You: Analyze this screenshot: /Users/me/Desktop/screenshot.png
 Assistant: I'll analyze that screenshot for you...
@@ -82,12 +102,8 @@ You: Yes
 Assistant: Done! Organized 15 screenshots into categories...
 ```
 
-#### MCP Server Mode
+**Note:** Local mode provides basic chat only - no screenshot analysis or file organization.
 
-```bash
-# Run as MCP server (for integration with other tools)
-python -m src.screenshot_mcp_server
-```
 
 #### Python API
 
@@ -170,21 +186,50 @@ export LOG_LEVEL=DEBUG
 
 ## Architecture
 
-### Tiered Processing Approach
+This project demonstrates **Microsoft Agent Framework WITH MCP Client Integration**.
 
-1. **OCR First**: Fast text extraction using Tesseract (~50ms)
-2. **Keyword Classification**: Pattern matching on extracted text
-3. **Vision Fallback**: Phi-3 Vision MLX for images without sufficient text (~1-2s)
+### Unified Architecture
 
-This approach optimizes for speed while maintaining accuracy.
+```
+Agent Framework (Brain 🧠)
+    ↓ contains
+MCP Client Wrapper (EMBEDDED)
+    ↓ calls via stdio
+MCP Server (Hands 🤲)
+    ↓ operates on
+File System
+```
 
-### Components
+**Key Principle:** The Agent Framework has an embedded MCP client that connects to an MCP server for all file operations.
 
-- **Processors**: OCR and Vision processors for image analysis
-- **Classifiers**: Keyword-based classification engine
-- **Organizers**: File management with safe operations
-- **MCP Server**: Model Context Protocol server for tool integration
-- **Chat Client**: GPT-4 orchestrated natural language interface
+### How It Works
+
+1. **Agent Framework (Orchestrator)**:
+   - Uses GPT-4 for intelligent decision-making
+   - Understands user intent
+   - Decides categorization and naming
+   - Orchestrates tool calls
+
+2. **MCP Client (Embedded Protocol Bridge)**:
+   - Embedded inside Agent Framework
+   - Manages MCP server subprocess
+   - Provides tool wrappers
+   - Handles stdio communication
+
+3. **MCP Server (Tool Provider)**:
+   - Runs as separate subprocess
+   - Exposes low-level file operation tools
+   - Returns facts (not decisions)
+   - Mediates all file system access
+
+4. **Processing Components**:
+   - **OCR**: Fast text extraction using Tesseract (~50ms)
+   - **Vision**: Phi-3 Vision MLX for image understanding (~2s)
+   - **Keyword Classifier**: Fallback pattern matching
+
+**All file system operations go through the MCP protocol** - demonstrating both Agent Framework capabilities and MCP standardization.
+
+For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Development
 
@@ -295,5 +340,6 @@ Contributions welcome! Please read CONTRIBUTING.md for guidelines.
 
 - Tesseract OCR for fast text extraction
 - Microsoft Phi-3 Vision for local image understanding
-- OpenAI GPT-4 for intelligent orchestration
-- MCP (Model Context Protocol) for tool integration
+- Microsoft Phi-4-mini for local testing capabilities
+- Azure OpenAI GPT-4 for production AI agent orchestration
+- Microsoft Agent Framework for unified tool integration

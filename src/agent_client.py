@@ -1,8 +1,19 @@
-"""Agent Framework client for screenshot organization with local or remote AI.
+"""Agent Framework client for screenshot organization with MCP Client Integration.
+
+Architecture: Agent Framework WITH MCP Client (embedded)
 
 Supports both:
-- Local mode: Fully on-device with Phi-3 Vision MLX (zero cost, complete privacy)
-- Remote mode: Azure OpenAI cloud-powered (more capable, requires API)
+- Local mode: TESTING ONLY - basic chat for conversation flow testing (no tools, no MCP)
+- Remote mode: PRODUCTION - Agent Framework WITH embedded MCP client for all file operations
+
+In remote mode, this demonstrates the unified architecture:
+  Agent Framework (Brain)
+    ↓ contains
+  MCP Client Wrapper (embedded)
+    ↓ calls via stdio
+  MCP Server (subprocess)
+    ↓ mediates
+  File System (ALL access through MCP protocol)
 """
 
 import os
@@ -14,7 +25,7 @@ from azure.identity import DefaultAzureCredential
 from rich.console import Console
 from rich.markdown import Markdown
 
-from mcp_tools import analyze_screenshot, batch_process, organize_file
+from mcp_client_wrapper import MCPClientWrapper, get_agent_framework_tools
 from utils.config import get as config_get, get_mode
 from utils.logger import get_logger
 
@@ -22,11 +33,20 @@ logger = get_logger(__name__)
 
 
 class AgentClient:
-    """Agent Framework client with integrated screenshot organization tools.
+    """Agent Framework client with embedded MCP Client for screenshot organization.
+
+    Demonstrates: Agent Framework WITH MCP Client Integration
 
     Supports two operation modes:
-    - Local: Uses Phi-3 Vision MLX (fully on-device, zero cost, complete privacy)
-    - Remote: Uses Azure OpenAI (cloud-powered, more capable)
+    - Local: TESTING ONLY - basic chat for testing conversation flow (no tools, no MCP)
+    - Remote: PRODUCTION - Agent Framework WITH embedded MCP client for all file operations
+
+    Remote Mode Architecture:
+    - AgentClient embeds MCPClientWrapper
+    - MCP client manages MCP server subprocess (stdio transport)
+    - All file system operations mediated through MCP protocol
+    - Agent (GPT-4) makes intelligent decisions
+    - MCP server provides low-level file operation tools
 
     Mode is determined by:
     1. Explicit mode parameter
@@ -35,32 +55,80 @@ class AgentClient:
     4. Default: "remote"
     """
 
-    SYSTEM_PROMPT = """You are a helpful AI assistant that helps users organize their screenshots.
+    # Production system prompt - full capabilities with tool support
+    REMOTE_SYSTEM_PROMPT = """You are an intelligent AI assistant that helps users organize their screenshots.
 
-You have access to three powerful tools for screenshot analysis and organization:
+You have access to low-level file operation tools that YOU orchestrate to complete tasks:
 
-1. **analyze_screenshot** - Analyzes a single screenshot to determine its category and suggest a filename
-   - Uses OCR for text-based screenshots (faster)
-   - Falls back to vision model for images without sufficient text
-   - Use force_vision=True only when specifically requested or when OCR clearly won't work
+**Available Tools:**
 
-2. **batch_process** - Processes multiple screenshots in a folder
-   - Can process folders recursively
-   - Optionally organizes files automatically after analysis
-   - Provides detailed statistics
+1. **list_screenshots** - List screenshot files in a directory
+   - Returns raw file information (path, size, modified time)
+   - You decide which files to process
 
-3. **organize_file** - Moves and renames a screenshot to the appropriate category folder
+2. **analyze_screenshot** - Extract content from a screenshot
+   - Returns extracted text (OCR) and/or vision description
+   - Does NOT categorize - YOU decide the category using your intelligence
+   - Use force_vision=True for non-text images
+
+3. **get_categories** - Get available categories with descriptions and keywords
    - Categories: code, errors, documentation, design, communication, memes, other
-   - Optionally archives original files
+   - YOU decide which category fits best
 
-Guidelines:
-- Always try OCR first for efficiency (it's much faster than vision)
-- When users ask to "organize" or "sort", use batch_process with organize=True
-- Provide clear, helpful summaries of what was done
-- Ask for confirmation before organizing large numbers of files
-- Suggest descriptive filenames based on content
+4. **create_category_folder** - Create a folder for a category
+   - Simple folder creation
+   - YOU decide when to create folders
 
-Be conversational, helpful, and efficient. Focus on making screenshot organization easy for the user."""
+5. **move_screenshot** - Move/copy a file to organize it
+   - Simple file operation
+   - YOU decide the destination and new filename
+
+**How to Organize Screenshots:**
+
+When a user asks to organize screenshots:
+1. Use **list_screenshots** to find files in the directory
+2. For each file:
+   a. Use **analyze_screenshot** to extract content
+   b. Read the extracted text/description
+   c. **YOU decide** the appropriate category using your understanding
+   d. **YOU create** a descriptive filename based on content
+   e. Use **create_category_folder** to ensure folder exists
+   f. Use **move_screenshot** to organize the file
+3. Summarize what you did for the user
+
+**Guidelines:**
+- Use OCR first (faster) - only use force_vision for images without text
+- Make intelligent categorization decisions based on content
+- Generate creative, descriptive filenames
+- Ask for confirmation before organizing many files
+- Provide clear summaries of your actions
+
+**Your Intelligence:**
+The tools just perform file operations. YOU provide the intelligence:
+- Understanding what the screenshot contains
+- Deciding the best category
+- Creating descriptive filenames
+- Orchestrating the workflow
+
+Be conversational, helpful, and demonstrate your intelligence in organizing files."""
+
+    # Testing-only system prompt - basic chat, no tool support
+    LOCAL_SYSTEM_PROMPT = """You are a helpful AI assistant for testing conversation flows.
+
+IMPORTANT: You are running in LOCAL TESTING MODE. This means:
+- You do NOT have access to screenshot analysis tools
+- You do NOT have access to file organization capabilities
+- You can only provide basic conversational responses
+
+Your purpose in this mode is to help developers test:
+- Agent conversation flow
+- Instruction following
+- Response quality and tone
+
+When users ask about screenshots or file organization, politely explain that these features
+require remote mode (GPT-4) for reliable operation. Local mode is for quick testing only.
+
+Be conversational and helpful within these limitations."""
 
     def __init__(self, mode: Optional[str] = None, endpoint: Optional[str] = None,
                  credential: Optional[str] = None, local_config: Optional[dict] = None):
@@ -81,11 +149,27 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
         else:
             self._init_remote_client(endpoint, credential)
 
-        # Create agent with screenshot organization tools (same for both modes)
+        # MCP client (will be started async in remote mode)
+        self.mcp_client = None
+
+        # Select system prompt and tools based on mode
+        if self.mode == "local":
+            # LOCAL: Testing mode - basic chat only, no tools
+            system_prompt = self.LOCAL_SYSTEM_PROMPT
+            tools = []  # No tools in local mode - not reliable
+            logger.info("Using LOCAL system prompt (testing mode, no tools)")
+        else:
+            # REMOTE: Production mode - full capabilities with MCP tools
+            # Tools will be initialized async (empty for now, set in async_init)
+            system_prompt = self.REMOTE_SYSTEM_PROMPT
+            tools = []  # Will be populated in async_init
+            logger.info("Using REMOTE system prompt (production mode with MCP tools)")
+
+        # Create agent with mode-specific configuration
         self.agent = ChatAgent(
             chat_client=self.chat_client,
-            instructions=self.SYSTEM_PROMPT,
-            tools=[analyze_screenshot, batch_process, organize_file]
+            instructions=system_prompt,
+            tools=tools
         )
 
         # Console for rich output
@@ -96,6 +180,36 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
 
         logger.info(f"✓ AgentClient initialized in {self.mode.upper()} mode")
         logger.info(f"Model: {self.model_name}")
+
+    async def async_init(self):
+        """Complete async initialization (MCP client for remote mode).
+
+        Must be called after __init__ for remote mode to enable tools.
+        """
+        if self.mode == "remote" and self.mcp_client is None:
+            logger.info("Starting MCP client for tool access...")
+            self.mcp_client = MCPClientWrapper()
+            await self.mcp_client.start()
+
+            # Get MCP tools and add to agent
+            mcp_tools = get_agent_framework_tools(self.mcp_client)
+
+            # Extract just the functions for Agent Framework
+            tool_functions = [tool["function"] for tool in mcp_tools]
+
+            # Update agent's tools
+            self.agent.tools = tool_functions
+
+            logger.info(f"✓ MCP client started, {len(tool_functions)} tools available")
+            logger.info("✓ All file system operations will go through MCP protocol")
+
+    async def cleanup(self):
+        """Clean up resources (stop MCP client)."""
+        if self.mcp_client:
+            logger.info("Stopping MCP client...")
+            await self.mcp_client.stop()
+            self.mcp_client = None
+            logger.info("✓ MCP client stopped")
 
     def _detect_mode(self, explicit_mode: Optional[str] = None) -> str:
         """Detect operation mode from explicit parameter, env, or config.
@@ -169,17 +283,18 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
                 logger.info("   - Endpoint auto-detected via 'foundry service status'")
             elif local_config:
                 logger.info("   - Endpoint from CLI arguments")
-            logger.info(f"   - Vision model: phi-3-vision-mlx (for screenshots)")
-            logger.info("   - Zero cost per query")
-            logger.info("   - Complete privacy (no data leaves device)")
+            logger.info("   - Mode: TESTING ONLY (basic chat, no tools)")
+            logger.info("   - Use for: Quick testing of conversation flow")
+            logger.info("   - Zero API costs")
 
         except ImportError as e:
             logger.error(f"Failed to import LocalFoundryChatClient: {e}")
             raise ImportError(
                 "Local mode requires AI Foundry and azure-ai-inference.\n"
                 "Install AI Foundry: https://aka.ms/ai-foundry/sdk\n"
-                "Start server: foundry run phi-4\n"
-                "Or switch to remote mode: --mode remote"
+                "Start server: foundry run phi-4-mini\n"
+                "Note: Local mode is for testing only (basic chat, no tools)\n"
+                "Or switch to remote mode for production: --mode remote"
             ) from e
 
     def _init_remote_client(self, endpoint: Optional[str] = None, credential: Optional[str] = None):

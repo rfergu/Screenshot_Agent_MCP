@@ -65,9 +65,9 @@ class CLIInterface:
         mode_desc = f"[bold {('green' if mode == 'local' else 'cyan')}]{mode_emoji} {mode.upper()} MODE[/bold {('green' if mode == 'local' else 'cyan')}] - {model_name}"
 
         if mode == "local":
-            mode_info = "• Running fully on-device with Phi-3 Vision MLX\n• Zero cost, complete privacy, no data leaves your device"
+            mode_info = "• TESTING MODE: Basic chat only (no tools)\n• Use for quick testing of conversation flow\n• Switch to remote mode for production use"
         else:
-            mode_info = "• Running on Azure OpenAI cloud infrastructure\n• More capable models, requires API access"
+            mode_info = "• PRODUCTION MODE: Full AI agent capabilities\n• Screenshot analysis, file organization, tool support\n• Running on Azure OpenAI cloud infrastructure"
 
         welcome_text = f"""
 [bold cyan]Screenshot Organizer AI Assistant[/bold cyan]
@@ -141,6 +141,9 @@ code, errors, documentation, design, communication, memes, other
 
     async def chat_loop(self):
         """Main interactive chat loop (async)."""
+        # Complete async initialization (MCP client for remote mode)
+        await self.agent_client.async_init()
+
         # Initialize thread
         await self.initialize_thread()
 
@@ -200,6 +203,9 @@ code, errors, documentation, design, communication, memes, other
             except Exception as e:
                 logger.error(f"Failed to save session on exit: {e}")
 
+            # Cleanup MCP client
+            await self.agent_client.cleanup()
+
 
 @click.command()
 @click.option(
@@ -209,7 +215,7 @@ code, errors, documentation, design, communication, memes, other
 @click.option(
     "--mode",
     type=click.Choice(["local", "remote"], case_sensitive=False),
-    help="Operation mode: 'local' (Phi-3 on-device) or 'remote' (Azure OpenAI)"
+    help="Operation mode: 'local' (testing only, no tools) or 'remote' (production, full capabilities)"
 )
 @click.option(
     "--port",
@@ -236,20 +242,22 @@ def main(session: Optional[str], mode: Optional[str], port: Optional[int],
 
     Supports two operation modes:
 
-    LOCAL MODE:
-      • Fully on-device with Phi-3 Vision MLX
-      • Zero cost per query, complete privacy
-      • No cloud dependencies or API keys needed
-      • Requires: pip install phi-3-vision-mlx
+    LOCAL MODE (TESTING ONLY):
+      • Basic chat for testing conversation flow
+      • NO tool support (no screenshot analysis, no file organization)
+      • Use for quick agent instruction testing only
+      • Requires: Azure AI Foundry CLI installed and running
 
-    REMOTE MODE:
-      • Azure OpenAI cloud-powered
-      • More capable models (GPT-4, etc.)
-      • Requires Azure credentials configured
+    REMOTE MODE (PRODUCTION):
+      • Full AI agent capabilities with tool support
+      • Screenshot analysis, batch processing, file organization
+      • Powered by Azure OpenAI (GPT-4)
+      • Requires: Azure credentials configured
 
     Mode Selection:
       • If --mode flag provided: Uses specified mode
       • If no flag: Interactive prompt at startup
+      • Recommended: Always use remote for production work
 
     Local Mode Endpoint Options:
       • Auto-detect (default): Detects port via 'foundry service status'
@@ -296,15 +304,15 @@ def main(session: Optional[str], mode: Optional[str], port: Optional[int],
             border_style="cyan"
         ))
         console.print()
-        console.print("[bold]1.[/bold] [green]Local Mode[/green] (Phi-3 Vision MLX)")
-        console.print("   • Fully on-device, complete privacy")
-        console.print("   • Zero cost per query")
-        console.print("   • Requires: phi-3-vision-mlx package")
+        console.print("[bold]1.[/bold] [green]Local Mode[/green] (TESTING ONLY)")
+        console.print("   • Basic chat for testing conversation flow")
+        console.print("   • NO tools (no screenshot analysis)")
+        console.print("   • Requires: Azure AI Foundry CLI running")
         console.print()
-        console.print("[bold]2.[/bold] [cyan]Remote Mode[/cyan] (Azure OpenAI)")
-        console.print("   • Cloud-powered, more capable")
+        console.print("[bold]2.[/bold] [cyan]Remote Mode[/cyan] (PRODUCTION - RECOMMENDED)")
+        console.print("   • Full AI agent capabilities with tool support")
+        console.print("   • Screenshot analysis, file organization")
         console.print("   • Requires: Azure credentials")
-        console.print("   • ~$0.01-0.05 per query")
         console.print()
 
         choice = Prompt.ask(
@@ -338,7 +346,7 @@ def main(session: Optional[str], mode: Optional[str], port: Optional[int],
             console.print("Get credentials from: [cyan]https://ai.azure.com[/cyan] or Azure Portal")
             console.print("See .env.example for setup instructions")
             console.print()
-            console.print("Tip: Use [bold]--mode local[/bold] for fully on-device operation (no API keys needed)")
+            console.print("Tip: Use [bold]--mode local[/bold] for quick testing (basic chat only, no tools)")
             sys.exit(1)
 
     # Build endpoint configuration for local mode

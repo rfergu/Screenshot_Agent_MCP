@@ -13,7 +13,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from utils.config import load_config
 from utils.logger import setup_logging
-from utils.model_manager import ModelManager
 
 
 @click.group()
@@ -267,24 +266,25 @@ def batch(ctx, folder, recursive, organize, max_files):
 def check(ctx):
     """Check system requirements.
 
-    Verify that all required dependencies and models are available.
+    Verify that all required dependencies are available.
     """
+    from utils import model_manager
+
     console = Console()
 
     console.print("\n[bold cyan]System Requirements Check[/bold cyan]\n")
 
-    # Check model manager
-    model_manager = ModelManager()
-    requirements = model_manager.check_requirements()
+    # Check requirements
+    check_results = model_manager.check_requirements()
 
     # Display results
-    table = Table(title="Model Availability")
-    table.add_column("Model", style="cyan")
+    table = Table(title="System Requirements")
+    table.add_column("Requirement", style="cyan")
     table.add_column("Status", style="green")
     table.add_column("Required", style="yellow")
     table.add_column("Name", style="white")
 
-    for key, info in requirements["models"].items():
+    for key, info in check_results["requirements"].items():
         status = "✓ Available" if info["available"] else "✗ Missing"
         status_style = "green" if info["available"] else "red"
         required = "Yes" if info["required"] else "No"
@@ -299,23 +299,18 @@ def check(ctx):
     console.print(table)
 
     # Overall status
-    if requirements["all_required_available"]:
-        console.print("\n[bold green]✓ All required models are available![/bold green]\n")
+    if check_results["all_required_available"]:
+        console.print("\n[bold green]✓ All required dependencies are available![/bold green]\n")
     else:
-        console.print("\n[bold red]✗ Some required models are missing.[/bold red]\n")
+        console.print("\n[bold red]✗ Some required dependencies are missing.[/bold red]\n")
 
     # Suggestions
     suggestions = model_manager.suggest_actions()
     if suggestions:
         console.print("[bold yellow]Suggested Actions:[/bold yellow]")
         for suggestion in suggestions:
-            console.print(f"  • {suggestion}")
+            console.print(f"  {suggestion}")
         console.print()
-
-    # Cache info
-    cache_size = model_manager.get_cache_size()
-    console.print(f"Model cache size: {cache_size:.2f} MB")
-    console.print(f"Cache location: {model_manager.cache_dir}\n")
 
 
 @cli.command()

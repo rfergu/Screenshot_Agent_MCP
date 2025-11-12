@@ -6,18 +6,23 @@
 - **Last Updated:** Initial specification
 
 ## Project Overview
-You are building a terminal-based screenshot organization tool that uses local AI models (Tesseract OCR and Phi-3 Vision MLX) to intelligently categorize and rename screenshots. The system prioritizes privacy by processing everything locally, with only GPT-4 used for natural language orchestration.
+You are building a terminal-based screenshot organization tool that demonstrates production AI agent development. The system supports dual-mode operation: remote production mode (Azure OpenAI GPT-4 with full tool support) and local testing mode (Phi-4-mini for basic chat). This showcases the reality of AI agent development: small local models for testing, large remote models for production.
 
 ## Key Design Decisions Made
-1. **OCR-First Approach:** Always attempt Tesseract OCR before using vision models
-2. **Local Processing Only:** No images sent to external APIs, maintaining complete privacy
-3. **MCP Protocol:** Clean separation between chat interface and processing tools
-4. **Tiered Processing:** OCR for text-heavy (>10 words), Vision for visual content
-5. **Zero Cost:** All image processing is free (local only)
+1. **Dual-Mode Architecture:** Local testing mode (Phi-4-mini, no tools) vs Remote production mode (GPT-4, full tools)
+2. **Production Reality:** Demonstrates that small local models are unreliable for tool calling
+3. **OCR-First Approach:** Always attempt Tesseract OCR before using vision models (remote mode)
+4. **Microsoft Agent Framework:** Unified interface for both modes despite different capabilities
+5. **Honest Communication:** Clear distinction between testing and production capabilities
 
 ## Architecture Summary
 ```
-User → Chat Client (GPT-4) → MCP Server → Processing Layer (OCR/Vision) → File Organization
+LOCAL MODE (Testing):
+User → Phi-4-mini Chat → Basic responses only
+
+REMOTE MODE (Production):
+User → GPT-4 Chat → Agent Framework → Tools (analyze_screenshot, batch_process, organize_file)
+                                    → Processing Layer (OCR/Vision) → File Organization
 ```
 
 ## Implementation Priorities
@@ -103,11 +108,12 @@ python-dotenv==1.0.0
 - **memes:** meme, funny, lol, 😂, 🤣
 
 ## Success Metrics
-- 90%+ successful categorization rate
-- $0.00 cost per image processed
+- 90%+ successful categorization rate (remote mode)
 - <50ms OCR processing time
 - <2s vision processing time
 - Natural conversation flow with users
+- Clear demonstration of local vs remote model capabilities
+- Honest communication about testing vs production modes
 
 ## Next Implementation Steps
 1. Create project structure and install dependencies

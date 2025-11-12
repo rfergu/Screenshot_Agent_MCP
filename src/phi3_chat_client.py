@@ -1,19 +1,32 @@
 """Local AI Foundry chat client for Microsoft Agent Framework.
 
-This module uses AI Foundry's local inference server (Phi-4) to work with
-Microsoft Agent Framework, enabling fully local operation with no cloud dependencies.
+IMPORTANT: Local mode is for TESTING ONLY.
+
+Local models (Phi-4, Phi-4-mini) do NOT reliably support:
+- Function/tool calling
+- Screenshot analysis
+- File organization
+
+Use local mode for:
+- Quick conversation flow testing
+- Validating agent instructions
+- Fast iteration without API costs
+
+Use remote mode (GPT-4) for:
+- Production usage
+- Real screenshot analysis
+- Reliable tool execution
 
 Requires:
 - AI Foundry CLI installed (foundry)
-- Phi-4 model downloaded (foundry cache list)
-- Inference server running (foundry run phi-4)
+- Phi-4-mini model downloaded (foundry cache list)
+- Inference server running (foundry run phi-4-mini)
 """
 
 import json
-import re
 from typing import Any, Dict, List, Optional, Union
 
-from agent_framework import BaseChatClient, use_function_invocation
+from agent_framework import BaseChatClient
 from agent_framework._types import ChatMessage, ChatResponse
 from azure.ai.inference import ChatCompletionsClient
 from azure.ai.inference.models import SystemMessage, UserMessage, AssistantMessage
@@ -23,18 +36,16 @@ from utils.foundry_local import detect_foundry_endpoint, detect_model_id, get_fo
 logger = get_logger(__name__)
 
 
-@use_function_invocation
 class LocalFoundryChatClient(BaseChatClient):
-    """Local AI Foundry chat client compatible with Microsoft Agent Framework.
+    """Local AI Foundry chat client - TESTING ONLY.
 
-    Uses AI Foundry's local inference server with Phi-4 model. Provides:
-    - Fully local operation (no cloud calls)
-    - Zero cost per query
-    - Complete privacy (no data leaves device)
-    - Same tool integration as Azure clients
+    Provides basic chat completion for testing agent conversation flow.
+    Does NOT support function calling or tool integration.
+
+    For production use with tools, use remote mode (AzureOpenAIChatClient).
 
     Note: Requires AI Foundry inference server running locally.
-    Start with: foundry run phi-4
+    Start with: foundry run phi-4-mini
     """
 
     def __init__(self,
@@ -159,62 +170,6 @@ class LocalFoundryChatClient(BaseChatClient):
             logger.warning(f"AI Foundry server not accessible: {e}")
             return False
 
-    def _parse_functools_format(self, text: str) -> List[Dict[str, Any]]:
-        """Parse phi-4-mini's functools format into function call dictionaries.
-
-        Phi-4-mini outputs function calls in a custom format:
-        functools[{"name": "function_name", "arguments": {"arg": "value"}}, ...]
-
-        This method extracts and parses these into a list of function call dicts.
-
-        Args:
-            text: Response text that may contain functools format
-
-        Returns:
-            List of dicts with 'name' and 'arguments' keys
-        """
-        function_calls = []
-
-        # Pattern to match functools[...] format
-        functools_pattern = r'functools\[(.*?)\]'
-        matches = re.findall(functools_pattern, text, re.DOTALL)
-
-        for match in matches:
-            try:
-                # Try to parse as JSON array first
-                parsed = json.loads(f'[{match}]')
-                if isinstance(parsed, list):
-                    for call in parsed:
-                        if isinstance(call, dict) and 'name' in call:
-                            function_calls.append(call)
-                logger.info(f"🏠 LOCAL: Parsed {len(function_calls)} function calls from functools format")
-            except json.JSONDecodeError:
-                # Fallback: try to parse individual function call format
-                # e.g., get_weather(city="San Francisco")
-                logger.debug(f"🏠 LOCAL: JSON parse failed, trying pattern match: {match}")
-
-                # Pattern: function_name(arg1="value1", arg2="value2")
-                call_pattern = r'(\w+)\((.*?)\)'
-                call_matches = re.findall(call_pattern, match)
-
-                for func_name, args_str in call_matches:
-                    # Parse arguments
-                    arguments = {}
-                    # Pattern: arg="value" or arg='value'
-                    arg_pattern = r'(\w+)=(["\'])(.*?)\2'
-                    arg_matches = re.findall(arg_pattern, args_str)
-
-                    for arg_name, _, arg_value in arg_matches:
-                        arguments[arg_name] = arg_value
-
-                    function_calls.append({
-                        'name': func_name,
-                        'arguments': arguments
-                    })
-                    logger.info(f"🏠 LOCAL: Parsed function call via pattern: {func_name}({arguments})")
-
-        return function_calls
-
     def _convert_to_inference_messages(
         self,
         messages: Union[str, ChatMessage, List[Union[str, ChatMessage]]]
@@ -279,192 +234,54 @@ class LocalFoundryChatClient(BaseChatClient):
         chat_options: Optional[Any] = None,
         **kwargs
     ) -> ChatResponse:
-        """Generate chat response using local AI Foundry Phi-4 model.
+        """Generate basic chat response using local AI Foundry model.
 
-        This implements the Agent Framework BaseChatClient interface for local operation.
+        LOCAL MODE - TESTING ONLY:
+        - Basic chat completion
+        - No function calling
+        - No tool integration
+        - Use for testing conversation flow
 
         Args:
-            messages: User messages in Agent Framework format (str, ChatMessage, or list).
-            chat_options: Optional chat options object with configuration.
-            **kwargs: Additional generation parameters (temperature, max_tokens, tools, etc.).
+            messages: User messages in Agent Framework format
+            chat_options: Optional chat options (temperature, max_tokens)
+            **kwargs: Additional parameters
 
         Returns:
-            ChatResponse object from Agent Framework.
+            ChatResponse with text only (no tool calls)
         """
-        # Extract parameters from kwargs and chat_options
+        # Extract parameters
         temperature = kwargs.get('temperature', getattr(chat_options, 'temperature', 0.7) if chat_options else 0.7)
         max_tokens = kwargs.get('max_tokens', getattr(chat_options, 'max_tokens', 1024) if chat_options else 1024)
-
-        # Get tools from chat_options and convert to Azure AI Inference format
-        tools = getattr(chat_options, 'tools', None) if chat_options else None
-
-        # Convert AIFunction objects to Azure AI Inference tool format
-        inference_tools = None
-        if tools:
-            from azure.ai.inference.models import ChatCompletionsToolDefinition, FunctionDefinition
-            inference_tools = []
-            for tool in tools:
-                # Convert AIFunction to ChatCompletionsToolDefinition
-                # Get the JSON schema from the AIFunction's input_model
-                schema = tool.input_model.model_json_schema() if hasattr(tool, 'input_model') and tool.input_model else {}
-
-                # Debug: log the schema to see parameter names
-                if logger.isEnabledFor(10):  # DEBUG
-                    logger.debug(f"🏠 LOCAL: Tool '{tool.name}' schema: {json.dumps(schema, indent=2)[:500]}")
-
-                function_def = FunctionDefinition(
-                    name=tool.name,
-                    description=tool.description or "",
-                    parameters=schema
-                )
-                tool_def = ChatCompletionsToolDefinition(function=function_def)
-                inference_tools.append(tool_def)
-
-            logger.debug(f"🏠 LOCAL: Converted {len(inference_tools)} AIFunction tools to Azure AI Inference format")
 
         # Convert messages to Azure AI Inference format
         inference_messages = self._convert_to_inference_messages(messages)
 
-        # Inject functools instructions for phi-4-mini (Foundry Local workaround)
-        # Phi-4-mini needs explicit instructions to use functools format since
-        # Foundry Local doesn't properly support OpenAI-style function calling
-        if inference_tools and len(inference_messages) > 0:
-            # Find or create system message
-            system_msg_idx = None
-            for idx, msg in enumerate(inference_messages):
-                if isinstance(msg, SystemMessage):
-                    system_msg_idx = idx
-                    break
-
-            functools_instructions = """
-FUNCTION CALLING: When you need to call a function, output ONLY the function call in this format:
-functools[{"name": "function_name", "arguments": {"arg1": "value1"}}]
-
-CRITICAL RULES:
-1. Extract parameters from user's message (paths, values, etc.)
-2. Use exact argument names from the function schema
-3. Output the functools call ONCE - do not repeat it
-4. After calling a function, WAIT for the result before responding
-5. Do NOT add notes, explanations, or commentary around the function call
-6. When you receive function results, provide a helpful natural language summary
-
-Example - User: "Analyze screenshot: /path/file.png"
-Good: functools[{"name": "analyze_screenshot", "arguments": {"path": "/path/file.png", "force_vision": false}}]
-Bad: (Note: ...) functools[...] (Note: ...) functools[...]
-"""
-
-            if system_msg_idx is not None:
-                # Append to existing system message
-                existing_content = inference_messages[system_msg_idx].content
-                inference_messages[system_msg_idx] = SystemMessage(
-                    content=existing_content + "\n" + functools_instructions
-                )
-            else:
-                # Prepend new system message
-                inference_messages.insert(0, SystemMessage(content=functools_instructions))
-
-            logger.debug(f"🏠 LOCAL: Added functools instructions to system message")
-
-        logger.debug(f"🏠 LOCAL: Generating response with {self.model_name} (max_tokens={max_tokens})")
-        if inference_tools:
-            logger.info(f"🏠 LOCAL: Tool calling enabled with {len(inference_tools)} tools")
+        logger.debug(f"🏠 LOCAL: Generating basic chat response with {self.model_name}")
 
         # Retry logic: try once, and if connection error, re-detect and retry
         max_attempts = 2
         for attempt in range(1, max_attempts + 1):
             try:
-
-                # Call local AI Foundry server
-                # Note: tools parameter enables function calling if model supports it
+                # Call local AI Foundry server - basic chat only
                 response = self.client.complete(
                     messages=inference_messages,
                     model=self.model_name,
                     temperature=temperature,
-                    max_tokens=max_tokens,
-                    tools=inference_tools  # Pass converted tools for function calling
+                    max_tokens=max_tokens
+                    # No tools parameter - local mode doesn't support it reliably
                 )
 
-                # Check response
-                message = response.choices[0].message
-                response_text = message.content or ""
+                # Extract simple text response
+                response_text = response.choices[0].message.content
 
-                # Check for OpenAI-style tool_calls (preferred)
-                has_openai_tool_calls = hasattr(message, 'tool_calls') and message.tool_calls is not None and len(message.tool_calls) > 0
+                if not response_text:
+                    response_text = "I apologize, but I couldn't generate a response. Could you rephrase your question?"
 
-                # Check for phi-4-mini's functools format (workaround for Foundry Local)
-                functools_calls = []
-                if response_text and 'functools[' in response_text:
-                    functools_calls = self._parse_functools_format(response_text)
+                logger.debug(f"🏠 LOCAL: Generated {len(response_text)} characters")
 
-                has_functools_calls = len(functools_calls) > 0
-
-                logger.info(f"🏠 LOCAL: Response - text: {bool(response_text)}, openai_tools: {has_openai_tool_calls}, functools: {has_functools_calls}")
-
-                # Convert to Agent Framework ChatMessage format
-                from agent_framework._types import ChatMessage as AFChatMessage, Role, FunctionCallContent
-
-                # Build contents list
-                contents = []
-                clean_text = None
-
-                # Add text content if present (remove functools format from display text)
-                if response_text:
-                    # Remove functools[...] from the text for cleaner display
-                    # Use DOTALL flag to match across newlines
-                    clean_text = re.sub(r'functools\[.*?\]', '', response_text, flags=re.DOTALL).strip()
-
-                    # Also remove common artifacts and notes
-                    clean_text = re.sub(r'\(Note:.*?\)', '', clean_text, flags=re.DOTALL).strip()
-
-                    # Remove extra whitespace and newlines
-                    clean_text = re.sub(r'\n\s*\n', '\n\n', clean_text).strip()
-
-                    if clean_text:
-                        contents.append({"type": "text", "text": clean_text})
-
-                # Add OpenAI-style tool calls if present
-                if has_openai_tool_calls:
-                    for tool_call in message.tool_calls:
-                        function_call_content = FunctionCallContent(
-                            call_id=tool_call.id,
-                            name=tool_call.function.name,
-                            arguments=tool_call.function.arguments
-                        )
-                        contents.append(function_call_content)
-                        logger.debug(f"  - OpenAI tool call: {tool_call.function.name}")
-
-                # Add functools-format tool calls (Foundry Local workaround)
-                elif has_functools_calls:
-                    import uuid
-                    for idx, func_call in enumerate(functools_calls):
-                        # Generate a unique call_id
-                        call_id = f"call_{uuid.uuid4().hex[:8]}"
-
-                        # Convert arguments dict to JSON string (Agent Framework expects string)
-                        arguments_json = json.dumps(func_call.get('arguments', {}))
-
-                        function_call_content = FunctionCallContent(
-                            call_id=call_id,
-                            name=func_call['name'],
-                            arguments=arguments_json
-                        )
-                        contents.append(function_call_content)
-                        logger.info(f"  - functools call: {func_call['name']}({arguments_json})")
-
-                # Create ChatMessage with contents
-                # Use cleaned text for the text property (what gets displayed)
-                display_text = clean_text if response_text else None
-
-                chat_message = AFChatMessage(
-                    role=Role.ASSISTANT,
-                    contents=contents if contents else None,
-                    text=display_text  # Use cleaned text without functools
-                )
-
-                logger.debug(f"🏠 LOCAL: Generated response with {len(contents)} content items")
-
-                # Return ChatResponse object with the message
-                return ChatResponse(messages=[chat_message])
+                # Return simple ChatResponse with text only
+                return ChatResponse(text=response_text)
 
             except Exception as e:
                 error_type = type(e).__name__

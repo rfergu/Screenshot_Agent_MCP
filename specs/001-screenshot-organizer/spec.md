@@ -4,7 +4,7 @@
 Screenshot Organizer with Local AI Processing
 
 ## Feature Description
-A terminal-based tool that intelligently organizes screenshots using local AI models (OCR and vision) with Microsoft Agent Framework orchestration. Supports dual-mode operation: local chat (Phi-3 Vision MLX) or remote chat (Azure OpenAI), both using the same embedded tool functions and Agent Framework interface.
+A terminal-based tool that intelligently organizes screenshots using AI models (OCR and vision) with Microsoft Agent Framework orchestration. Demonstrates **Agent Framework WITH MCP Client Integration** - a modern architecture where the Agent Framework contains an embedded MCP client that connects to an MCP server for all file operations. Supports dual-mode operation: local testing mode (Phi-4-mini for basic chat, no tools) or remote production mode (Azure OpenAI GPT-4 with full MCP tool support). Demonstrates the reality of production AI agent development: small local models for quick testing, large remote models for reliable production capabilities with standardized tool integration via Model Context Protocol (MCP).
 
 ## User Stories
 
@@ -41,15 +41,17 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 **So that** I can easily organize screenshots without memorizing commands
 
 **Acceptance Criteria:**
-- Supports both local (Phi-3) and remote (Azure OpenAI) chat modes
-- Both modes use Microsoft Agent Framework with same tool access
-- Natural language understanding for user requests
+- Supports both local (testing only) and remote (production) chat modes
+- Remote mode uses Microsoft Agent Framework with full tool access
+- Local mode provides basic chat for testing conversation flow (no tools)
+- Natural language understanding for user requests (remote mode)
 - Provides helpful suggestions and clarifications
 - Explains what the tool is doing at each step
-- Offers to process individual files or batches
+- Offers to process individual files or batches (remote mode only)
 - Remembers context within a session
 - Clear error messages when operations fail
-- Displays current mode indicator when configured
+- Displays current mode indicator to prevent confusion
+- Local mode explains its limitations and suggests remote mode for actual work
 
 ### US-004: Organize and Rename Files
 **As a** user  
@@ -100,14 +102,20 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
   - communication: Contains "sent", "replied", "message", "@"
   - other: Default if no patterns match
 
-### FR-004: Tool Function Implementation
-- Implement three tool functions as standalone Python functions with Pydantic type annotations:
-  1. `analyze_screenshot(path, force_vision=False)` - Analyze single screenshot
-  2. `batch_process(folder, recursive, max_files, organize)` - Process folder of screenshots
-  3. `organize_file(source_path, category, new_filename, archive_original, base_path)` - Organize and rename file
-- Use `Annotated[type, Field(description="...")]` pattern for automatic tool discovery
-- Tools embedded directly in Agent Framework (no separate MCP server process)
-- Return structured dictionary responses
+### FR-004: MCP Tool Implementation (Remote Mode Only)
+- Implement 7 low-level file operation tools via MCP server:
+  1. `list_screenshots(directory, recursive, max_files)` - List screenshot files
+  2. `analyze_screenshot(file_path, force_vision)` - Extract text/description (returns facts, not decisions)
+  3. `get_categories()` - Get available categories with keyword lists
+  4. `categorize_screenshot(text, description)` - Keyword-based fallback classification
+  5. `create_category_folder(category, base_path)` - Create category folder
+  6. `move_screenshot(source_path, destination_folder, new_filename, archive_original)` - Move/rename file
+  7. `generate_filename(base_name, extension, destination_folder)` - Generate safe filename
+- MCP server runs as subprocess, accessed via stdio transport
+- MCP client embedded inside Agent Framework (MCPClientWrapper)
+- Agent Framework (GPT-4) makes intelligent decisions (categories, filenames)
+- Tools return facts; Agent provides intelligence and orchestration
+- Local mode has NO tools (testing conversation flow only)
 
 ### FR-005: File Management
 - Create organized folder structure
@@ -141,51 +149,70 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 - Calculate and display aggregate statistics
 - Show cost savings from local processing
 
-### FR-009: Microsoft Agent Framework Implementation
+### FR-009: Microsoft Agent Framework WITH MCP Client Integration
 - Use `agent-framework` Python package (>=0.1.0)
-- Create `ChatAgent` with embedded tool functions (not separate MCP server)
+- **Unified Architecture**: Agent Framework WITH embedded MCP Client
+  - `MCPClientWrapper` embedded inside `AgentClient`
+  - MCP client starts MCP server subprocess on initialization
+  - Tools accessed via MCP protocol (stdio transport)
+  - All file system operations mediated through MCP
+- Create `ChatAgent` with tools provided by MCP client wrapper (remote mode only)
 - Use `AzureOpenAIChatClient` for dual endpoint support (Foundry + Azure OpenAI)
 - Implement async conversation pattern with `await agent.run()`
 - Use `AgentThread` for conversation state management:
   - `agent.get_new_thread()` for new conversations
   - `await thread.serialize()` for session persistence
   - `await agent.deserialize_thread()` for session restoration
-- Tools provided as list to `ChatAgent(tools=[analyze_screenshot, batch_process, organize_file])`
+- Lifecycle management:
+  - `await agent_client.async_init()` starts MCP client (remote mode)
+  - `await agent_client.cleanup()` stops MCP server subprocess
 - Agent Framework handles:
-  - Automatic tool discovery via type annotations
-  - Tool call orchestration (no manual loops)
+  - Intelligent decision making (GPT-4)
+  - Tool call orchestration
   - Message formatting and API calls
   - Thread state management
+- MCP Server provides:
+  - Low-level file operation tools
+  - Facts and data (not decisions)
+  - Standardized tool interface via MCP protocol
 
-### FR-010: Dual-Mode Support with Hybrid Local Architecture
+### FR-010: Dual-Mode Support - Testing vs Production Architecture
 - **Mode Selection**: Support both local and remote operation
   - Priority: CLI flag > environment variable > config file > default (remote)
   - Interactive prompt if no mode specified
-- **Local Mode (Dual Model)**:
-  - Chat: AI Foundry Phi-4 via local inference server (foundry run phi-4)
-  - Vision: Phi-3 Vision MLX for screenshot analysis (phi-3-vision-mlx package)
+  - **Recommended:** Always use remote for production work
+- **Local Mode (TESTING ONLY)**:
+  - Purpose: Quick testing of agent conversation flow and instructions
+  - Chat: AI Foundry Phi-4-mini via local inference server (foundry run phi-4-mini)
+  - **NO tool support** - basic chat responses only
+  - **NO screenshot analysis** - cannot call OCR or Vision models
+  - **NO file organization** - no access to file system operations
   - LocalFoundryChatClient implements Agent Framework ChatClient protocol
   - Uses azure-ai-inference SDK for local endpoint communication
-  - Requires: AI Foundry CLI, Phi-4 downloaded, inference server running
-- **Remote Mode (Single Model)**:
-  - Chat + Vision: Azure OpenAI GPT-4o (same model for both)
+  - Requires: AI Foundry CLI, Phi-4-mini downloaded, inference server running
+  - Use cases: Testing system prompts, validating agent instructions, fast iteration without API costs
+- **Remote Mode (PRODUCTION)**:
+  - Purpose: Full AI agent capabilities with reliable tool support
+  - Chat: Azure OpenAI GPT-4o with complete tool calling support
+  - **Full MCP tool support** - 7 low-level file operation tools via MCP server
+  - **MCP Architecture Active**: Agent Framework WITH embedded MCP client
+  - All file system operations mediated through MCP protocol
+  - Screenshot analysis with GPT-4 Vision or fallback to local Phi-3 Vision MLX
+  - Complete file organization capabilities
   - AzureOpenAIChatClient with Azure credentials
   - Supports both Azure AI Foundry and Azure OpenAI endpoints
-- **Unified Interface**:
-  - Same AgentClient for both modes
-  - Same ChatAgent with identical tool list
-  - Same tool implementations (tools call different underlying models)
+  - Use cases: Production screenshot organization, batch processing, reliable categorization, MCP protocol demonstration
+- **Mode-Specific Interface**:
+  - Same AgentClient wrapper for both modes
+  - **Different tool lists**: Empty list for local, full tools for remote
+  - **Different system prompts**: Testing guidance for local, full capabilities for remote
   - Configuration via `config/config.yaml`
-  - CLI shows mode indicator
-- **Vision Processing**:
-  - VisionProcessor uses phi-3-vision-mlx in both modes
-  - Workaround for v0.0.3rc1 syntax error (patch and exec)
-  - Called by analyze_screenshot tool
-  - Separate from chat client layer
-- **Demo Support**:
-  - Interactive mode selection at startup
-  - Side-by-side comparison utility
-  - Clear documentation of dual vs single model architecture
+  - CLI shows mode indicator to prevent confusion
+- **Architecture Reality**:
+  - Local small models (Phi-4-mini) do NOT reliably support function calling
+  - Remote large models (GPT-4o) have robust tool calling support
+  - This demonstrates production AI agent development reality: use appropriate models for the task
+  - Privacy-focused users should use remote mode with local Vision fallback (images stay local)
 
 ## Non-Functional Requirements
 
@@ -195,9 +222,10 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 - Batch processing: Linear scaling with file count
 
 ### NFR-002: Privacy
-- No image data sent to external services
-- All vision processing done locally
-- Only text metadata sent to Azure AI (Foundry or Azure OpenAI) for orchestration
+- Image data only sent to Azure OpenAI when using GPT-4 Vision (remote mode)
+- Local Phi-3 Vision MLX used as fallback when available (no external transmission)
+- Remote mode can be configured to use local vision processing for privacy
+- Local mode (testing only) does not process images at all
 
 ### NFR-003: Usability
 - Clear command-line interface
@@ -242,25 +270,25 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 4. **Q: How to handle very large images?**
    A: Resize for processing while maintaining aspect ratio
 
-5. **Q: Why use Microsoft Agent Framework instead of standalone MCP server?**
-   A: Embedded tools provide:
-   - Simpler architecture (no separate server process)
-   - Lower latency (direct function calls, no IPC overhead)
-   - Easier testing and debugging
-   - Built-in thread persistence and tool orchestration
-   - Still demonstrates clear tool abstraction through function interface
-   - Future-ready for multi-agent patterns
+5. **Q: Why use MCP architecture (Agent Framework WITH MCP Client)?**
+   A: This unified architecture demonstrates modern AI agent development:
+   - **Separation of Concerns**: Brain (Agent Framework/GPT-4) vs Hands (MCP Server)
+   - **Protocol Standardization**: All file operations through standardized MCP protocol
+   - **Clear Boundaries**: Tools return facts, Agent makes decisions
+   - **Educational Value**: Shows how to integrate MCP with Agent Framework
+   - **Production Pattern**: Demonstrates protocol-mediated tool access
+   - **Flexibility**: MCP tools can be reused by other MCP clients
+   - **Demonstrations**: Shows both Agent Framework capabilities AND MCP protocol integration
+   - Agent provides intelligence (categorization, naming), MCP provides operations (file access)
 
 6. **Q: Why support both local and remote modes?**
-   A: Demonstrates Agent Framework's backend-agnostic design and provides user choice between privacy/cost (local) vs capability (remote).
+   A: Demonstrates the reality of production AI agent development: local small models are good for testing conversation flow but unreliable for tool calling. Remote large models (GPT-4) provide production-ready capabilities. This shows developers the tradeoffs between cost/privacy (local testing) vs reliability/capability (remote production).
 
-7. **Q: Why use two models for local mode (Phi-4 + Phi-3 Vision) instead of one?**
-   A: Separation of concerns - Phi-4 excels at chat/reasoning/tool calling, while Phi-3 Vision specializes in image understanding. This architecture:
-   - Uses each model for its strength
-   - Mirrors the remote architecture (chat layer + vision layer)
-   - Demonstrates that tools can call different backends
-   - Shows vision processing is separate from chat client
-   - Both modes use identical tool interface despite different underlying models
+7. **Q: Why doesn't local mode have tools if the spec originally called for them?**
+   A: Through implementation we discovered that Phi-4-mini's function calling is unreliable (ignores tools, hallucinates responses, garbled JSON). Rather than providing a broken experience, local mode focuses on what small models do well: basic chat for testing agent instructions. This is more honest about current AI model capabilities and shows production development reality.
+
+8. **Q: How can users maintain privacy if local mode doesn't process images?**
+   A: Remote mode can be configured to use local Phi-3 Vision MLX as fallback for screenshot analysis, keeping images on-device while using GPT-4 for orchestration and tool calling.
 
 ### Pending Clarifications
 - Exact format for renamed files (timestamp prefix?)

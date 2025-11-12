@@ -1,4 +1,33 @@
-"""MCP server for screenshot organization using local AI processing."""
+"""MCP Server - The "Hands" in Agent Framework WITH MCP Client Integration.
+
+Architecture: This is the MCP SERVER (subprocess) in the unified architecture
+
+This server runs as a SUBPROCESS accessed by the embedded MCP client in Agent Framework.
+It provides "dumb" file operation tools that return facts, not decisions.
+
+Unified Architecture:
+  Agent Framework (Brain - GPT-4)
+    ↓ embeds
+  MCP Client Wrapper (embedded)
+    ↓ stdio transport
+  MCP Server (THIS MODULE - subprocess)
+    ↓ mediates
+  File System
+
+The MCP server provides low-level tools that:
+- Return facts and data (not decisions)
+- Execute file operations
+- Handle protocol communication
+- Mediate ALL file system access
+
+The Agent Framework (GPT-4) provides the intelligence:
+- Decides categories
+- Creates descriptive filenames
+- Orchestrates workflow
+- Understands content and intent
+
+This demonstrates separation of concerns: Brain (Agent) vs Hands (MCP Server).
+"""
 
 import asyncio
 import json
@@ -8,7 +37,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from mcp_tools import MCPToolHandlers
+import mcp_tools
 from utils.config import load_config
 from utils.logger import get_logger, setup_logging
 
@@ -16,108 +45,177 @@ logger = get_logger(__name__)
 
 
 class ScreenshotMCPServer:
-    """MCP server providing screenshot analysis and organization tools."""
+    """MCP server subprocess providing low-level file operation tools.
+
+    This server runs as a subprocess, accessed via stdio transport by the
+    embedded MCP client in Agent Framework.
+
+    Role in Architecture:
+    - Provides 7 low-level file operation tools
+    - Returns facts and data (not intelligent decisions)
+    - Mediates ALL file system access
+    - Communicates via MCP protocol (stdio)
+
+    The Agent Framework (Brain) makes decisions; this server (Hands) executes them.
+    """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        """Initialize MCP server with tool handlers.
+        """Initialize MCP server.
 
         Args:
             config: Optional configuration dictionary. If None, loads from default config.
         """
         self.config = config or load_config()
         self.server = Server("screenshot-organizer-mcp")
-        self.handlers = MCPToolHandlers(self.config)
 
         logger.info("ScreenshotMCPServer initialized")
 
     def register_tools(self):
-        """Register all MCP tools with their schemas."""
+        """Register all low-level MCP tools with their schemas."""
 
-        # Tool 1: analyze_screenshot
         @self.server.list_tools()
         async def list_tools() -> list[Tool]:
             """List all available MCP tools."""
             return [
                 Tool(
-                    name="analyze_screenshot",
-                    description="Analyze a screenshot using OCR or vision model to determine its category and suggest a filename",
+                    name="list_screenshots",
+                    description="List screenshot files in a directory. Returns raw file information without analysis.",
                     inputSchema={
                         "type": "object",
                         "properties": {
-                            "path": {
+                            "directory": {
                                 "type": "string",
-                                "description": "Absolute path to the screenshot file"
-                            },
-                            "force_vision": {
-                                "type": "boolean",
-                                "description": "Force use of vision model even if OCR would be sufficient",
-                                "default": False
-                            }
-                        },
-                        "required": ["path"]
-                    }
-                ),
-                Tool(
-                    name="batch_process",
-                    description="Process all screenshots in a folder, analyzing and categorizing each one",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "folder": {
-                                "type": "string",
-                                "description": "Path to the folder containing screenshots"
+                                "description": "Absolute path to directory to scan for screenshots"
                             },
                             "recursive": {
                                 "type": "boolean",
-                                "description": "Process subfolders recursively",
+                                "description": "Scan subdirectories recursively",
                                 "default": False
                             },
                             "max_files": {
                                 "type": "integer",
-                                "description": "Maximum number of files to process",
-                                "minimum": 1,
-                                "maximum": 1000
-                            },
-                            "organize": {
-                                "type": "boolean",
-                                "description": "Automatically organize files after analysis",
-                                "default": False
+                                "description": "Maximum number of files to return",
+                                "minimum": 1
                             }
                         },
-                        "required": ["folder"]
+                        "required": ["directory"]
                     }
                 ),
                 Tool(
-                    name="organize_file",
-                    description="Move and rename a screenshot file based on its category",
+                    name="analyze_screenshot",
+                    description="Analyze screenshot content using OCR or vision model. Returns RAW analysis data (text, description) without making categorization decisions.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "file_path": {
+                                "type": "string",
+                                "description": "Absolute path to screenshot file to analyze"
+                            },
+                            "force_vision": {
+                                "type": "boolean",
+                                "description": "Skip OCR and use vision model directly",
+                                "default": False
+                            }
+                        },
+                        "required": ["file_path"]
+                    }
+                ),
+                Tool(
+                    name="get_categories",
+                    description="Get list of available screenshot categories with descriptions and keywords.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {}
+                    }
+                ),
+                Tool(
+                    name="categorize_screenshot",
+                    description="Suggest category based on text content using keyword matching. This is a simple fallback - the Agent should make the final decision using its intelligence.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "text": {
+                                "type": "string",
+                                "description": "Text content to categorize"
+                            },
+                            "available_categories": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of valid category names (optional)"
+                            }
+                        },
+                        "required": ["text"]
+                    }
+                ),
+                Tool(
+                    name="create_category_folder",
+                    description="Create a category folder for organizing screenshots. Simple folder creation operation.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "category": {
+                                "type": "string",
+                                "description": "Category name (e.g., 'code', 'errors')"
+                            },
+                            "base_dir": {
+                                "type": "string",
+                                "description": "Base directory for organization (uses config default if not provided)"
+                            }
+                        },
+                        "required": ["category"]
+                    }
+                ),
+                Tool(
+                    name="move_screenshot",
+                    description="Move (or copy) a screenshot file to a destination folder. Simple file operation - the Agent decides destination and filename.",
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "source_path": {
                                 "type": "string",
-                                "description": "Current path of the file to organize"
+                                "description": "Absolute path to source file"
                             },
-                            "category": {
+                            "dest_folder": {
                                 "type": "string",
-                                "enum": ["code", "errors", "documentation", "design", 
-                                       "communication", "memes", "other"],
-                                "description": "Category for organization"
+                                "description": "Absolute path to destination folder"
                             },
                             "new_filename": {
                                 "type": "string",
-                                "description": "New filename for the file (without extension)"
+                                "description": "New filename (without extension). If None, keeps original name"
                             },
-                            "archive_original": {
+                            "keep_original": {
                                 "type": "boolean",
-                                "description": "Keep a copy of the original file in archive",
-                                "default": False
-                            },
-                            "base_path": {
-                                "type": "string",
-                                "description": "Base path for organized files"
+                                "description": "If True, copy instead of move",
+                                "default": True
                             }
                         },
-                        "required": ["source_path", "category", "new_filename"]
+                        "required": ["source_path", "dest_folder"]
+                    }
+                ),
+                Tool(
+                    name="generate_filename",
+                    description="Generate a descriptive filename for a screenshot. Simple utility - the Agent can use its own intelligence for better names.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "original_filename": {
+                                "type": "string",
+                                "description": "Original filename"
+                            },
+                            "category": {
+                                "type": "string",
+                                "description": "Category name"
+                            },
+                            "text": {
+                                "type": "string",
+                                "description": "Optional extracted text for generating descriptive name"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Optional description for generating descriptive name"
+                            }
+                        },
+                        "required": ["original_filename", "category"]
                     }
                 )
             ]
@@ -136,25 +234,44 @@ class ScreenshotMCPServer:
             logger.info(f"Tool called: {name} with arguments: {arguments}")
 
             try:
-                if name == "analyze_screenshot":
-                    result = self.handlers.analyze_screenshot(
-                        path=arguments["path"],
+                result = None
+
+                if name == "list_screenshots":
+                    result = mcp_tools.list_screenshots(
+                        directory=arguments["directory"],
+                        recursive=arguments.get("recursive", False),
+                        max_files=arguments.get("max_files")
+                    )
+                elif name == "analyze_screenshot":
+                    result = mcp_tools.analyze_screenshot(
+                        file_path=arguments["file_path"],
                         force_vision=arguments.get("force_vision", False)
                     )
-                elif name == "batch_process":
-                    result = self.handlers.batch_process(
-                        folder=arguments["folder"],
-                        recursive=arguments.get("recursive", False),
-                        max_files=arguments.get("max_files"),
-                        organize=arguments.get("organize", False)
+                elif name == "get_categories":
+                    result = mcp_tools.get_categories()
+                elif name == "categorize_screenshot":
+                    result = mcp_tools.categorize_screenshot(
+                        text=arguments["text"],
+                        available_categories=arguments.get("available_categories")
                     )
-                elif name == "organize_file":
-                    result = self.handlers.organize_file(
-                        source_path=arguments["source_path"],
+                elif name == "create_category_folder":
+                    result = mcp_tools.create_category_folder(
                         category=arguments["category"],
-                        new_filename=arguments["new_filename"],
-                        archive_original=arguments.get("archive_original", False),
-                        base_path=arguments.get("base_path")
+                        base_dir=arguments.get("base_dir")
+                    )
+                elif name == "move_screenshot":
+                    result = mcp_tools.move_screenshot(
+                        source_path=arguments["source_path"],
+                        dest_folder=arguments["dest_folder"],
+                        new_filename=arguments.get("new_filename"),
+                        keep_original=arguments.get("keep_original", True)
+                    )
+                elif name == "generate_filename":
+                    result = mcp_tools.generate_filename(
+                        original_filename=arguments["original_filename"],
+                        category=arguments["category"],
+                        text=arguments.get("text"),
+                        description=arguments.get("description")
                     )
                 else:
                     raise ValueError(f"Unknown tool: {name}")
@@ -183,10 +300,10 @@ class ScreenshotMCPServer:
     async def run(self):
         """Run the MCP server using stdio transport."""
         logger.info("Starting MCP server with stdio transport")
-        
+
         # Register tools
         self.register_tools()
-        
+
         # Run server with stdio
         async with stdio_server() as (read_stream, write_stream):
             logger.info("MCP server running on stdio")

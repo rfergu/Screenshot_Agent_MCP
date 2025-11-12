@@ -1,35 +1,38 @@
 <!--
 Sync Impact Report
 
-- Version change: none -> 1.0.0
-- Modified principles: none
-- Added sections: Article X: Governance
-- Removed sections: none
+- Version change: 1.0.0 -> 2.0.0
+- Modified principles: Article I completely revised to reflect production AI development reality
+- Added sections: none
+- Removed sections: "Local-First Processing" principle (discovered to be incompatible with small model limitations)
+- Amended: 2025-11-12 - Major revision: Local mode changed from "full local processing" to "testing only" after discovering Phi-4-mini function calling unreliability
 - Templates reviewed:
 	- .specify/templates/plan-template.md ✅ reviewed (Constitution Check present)
 	- .specify/templates/spec-template.md ✅ reviewed
 	- .specify/templates/tasks-template.md ✅ reviewed (contains sample tasks that must be replaced by generator)
 	- .specify/templates/commands/ ⚠ missing - no command templates found; please verify commands folder
-	- specs/001-screenshot-organizer/ ✅ reviewed
+	- specs/001-screenshot-organizer/ ✅ reviewed and updated to match
 
 - Follow-up TODOs:
+	- Update README.md to match new architecture
+	- Update COPILOT.md with corrected guidance
 
 
 -->
 
 # Project Constitution
 
-Constitution Version: 1.0.0
+Constitution Version: 2.0.0
 
 Ratification Date: 2025-11-11
 
-Last Amended: 2025-11-11
+Last Amended: 2025-11-12
 
 ## Article I: Core Principles
-1. **Local-First Processing**: Always prioritize local processing methods (OCR, local models) over external API calls
-2. **Privacy by Design**: User data never leaves their machine except for GPT-4 orchestration (no images sent externally)
-3. **Performance Transparency**: Always report which processing method was used and its performance metrics
-4. **Cost Efficiency**: Minimize external API costs by maximizing local processing
+1. **Production-Ready Development**: Demonstrate the reality of AI agent development - use appropriate models for the task (small models for testing, large models for production)
+2. **Honest Capability Communication**: Clearly distinguish between testing mode (limited capabilities) and production mode (full features)
+3. **Privacy Options**: Provide options for privacy-conscious users (local Vision fallback) while maintaining production reliability
+4. **Performance Transparency**: Always report which processing method was used and its performance metrics
 
 ## Article II: Technical Standards
 1. **Python Best Practices**: Follow PEP 8, use type hints, document all functions
@@ -56,10 +59,11 @@ Last Amended: 2025-11-11
 4. **Dependency Management**: Use requirements.txt with pinned versions
 
 ## Article VI: Security & Privacy
-1. **No External Image Transmission**: Images are never sent to external services
-2. **Local Model Priority**: Use local models (Tesseract, Phi-3 Vision) exclusively for image processing
+1. **Privacy Options**: Remote mode can use local Phi-3 Vision MLX as fallback for image processing
+2. **Image Processing Transparency**: Clearly document when images are sent to external services (GPT-4 Vision)
 3. **Secure Configuration**: API keys stored in environment variables, never hardcoded
 4. **Data Retention**: Process and organize files without creating unnecessary copies
+5. **Local Testing Mode**: Local mode does not process images at all (testing only)
 
 ## Article VII: Performance Optimization
 1. **Tiered Processing**: OCR first (fast), then local vision model (slower) only when needed

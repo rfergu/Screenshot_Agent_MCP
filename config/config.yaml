@@ -6,10 +6,10 @@
 # ============================================================================
 demo:
   # Operation mode: "local", "remote", or "auto"
-  # - local: Uses Phi-3 Vision MLX (fully on-device, zero cost, complete privacy)
-  # - remote: Uses Azure OpenAI/Foundry (cloud-powered, more capable)
+  # - local: TESTING ONLY - basic chat for conversation flow testing (no tools)
+  # - remote: PRODUCTION - full capabilities with tool support and GPT-4
   # - auto: Tries local first, falls back to remote if needed
-  mode: "remote"  # Default to remote (change to "local" for on-device demo)
+  mode: "remote"  # Recommended: Use remote for production, local for quick testing only
 
   # Display options for demo purposes
   show_model_name: true      # Show [🏠 local] or [☁️ remote] in responses
@@ -17,10 +17,27 @@ demo:
   show_cost_estimate: false  # Show estimated cost per query
 
 # ============================================================================
-# LOCAL MODE CONFIGURATION (AI Foundry + Phi-3 Vision MLX)
+# LOCAL MODE CONFIGURATION - TESTING ONLY
 # ============================================================================
 local:
   enabled: true
+
+  # ⚠️  WARNING: Local mode is for TESTING ONLY ⚠️
+  #
+  # Local models (Phi-4, Phi-4-mini) do NOT reliably support:
+  #   - Function calling / tool integration
+  #   - Screenshot analysis
+  #   - File organization
+  #
+  # Use local mode for:
+  #   ✓ Quick agent conversation flow testing
+  #   ✓ Validating agent instructions
+  #   ✓ Fast iteration without API costs
+  #
+  # Use remote mode (GPT-4) for:
+  #   ✓ Production usage
+  #   ✓ Real screenshot analysis
+  #   ✓ Reliable tool execution
 
   # Chat model: AI Foundry Phi-4-mini (requires foundry service to be running)
   # Endpoint options:
@@ -28,23 +45,24 @@ local:
   #   - Specific base URL with /v1: e.g., "http://127.0.0.1:60779/v1"
   # Note: Foundry Local uses dynamically-allocated ports, so "auto" is best
   # Note: SDK appends /chat/completions → http://127.0.0.1:PORT/v1/chat/completions
-  # Note: Use "phi-4-mini" for tool calling support, "phi-4" for basic chat only
   endpoint: "auto"
   model: "phi-4-mini"
-
-  # Vision model: Phi-3 Vision MLX (for screenshot analysis only)
-  # Automatically used by analyze_screenshot tool
-  # Note: phi-3-vision-mlx v0.0.3rc1 has a syntax error that we workaround
 
   # Generation parameters
   max_tokens: 1024
   temperature: 0.7
 
 # ============================================================================
-# REMOTE MODE CONFIGURATION (Azure OpenAI / AI Foundry)
+# REMOTE MODE CONFIGURATION - PRODUCTION
 # ============================================================================
 remote:
   enabled: true
+
+  # PRODUCTION MODE: Full AI agent capabilities
+  #   ✓ Complete tool support (MCP protocol)
+  #   ✓ Screenshot analysis with GPT-4 Vision
+  #   ✓ Reliable function calling
+  #   ✓ File organization and batch processing
 
   # Provider: "azure_openai" or "azure_foundry"
   provider: "azure_openai"
