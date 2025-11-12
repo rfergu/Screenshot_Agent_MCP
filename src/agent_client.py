@@ -354,7 +354,7 @@ Be conversational and helpful within these limitations."""
             thread: Optional AgentThread to use. If None, uses current_thread.
 
         Returns:
-            Assistant's response text.
+            Assistant's response text (includes tool call details for transparency).
         """
         if thread is None:
             thread = self.current_thread
@@ -368,11 +368,40 @@ Be conversational and helpful within these limitations."""
             # Agent Framework handles all tool calling automatically
             response = await self.agent.run(user_message, thread=thread)
 
-            # Extract text from AgentRunResponse
-            response_text = response.text if response.text else ""
+            # Build response with tool call transparency
+            response_parts = []
 
-            logger.debug(f"Assistant response: {response_text[:100]}...")
-            return response_text
+            # Check if there were tool calls in the response
+            # Agent Framework stores messages in the thread
+            if hasattr(thread, 'messages') and len(thread.messages) > 0:
+                # Look at recent messages for tool calls
+                for msg in thread.messages[-10:]:  # Check last 10 messages
+                    if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                        for tool_call in msg.tool_calls:
+                            tool_name = tool_call.function.name if hasattr(tool_call.function, 'name') else 'unknown'
+                            response_parts.append(f"🔧 **Tool Called:** `{tool_name}`")
+                            logger.info(f"Tool called: {tool_name}")
+
+                    # Show tool results
+                    if hasattr(msg, 'role') and msg.role == 'tool':
+                        tool_result = msg.content if hasattr(msg, 'content') else 'No result'
+                        # Truncate long results
+                        if len(str(tool_result)) > 500:
+                            tool_result = str(tool_result)[:500] + "... (truncated)"
+                        response_parts.append(f"📊 **Tool Result:**\n```\n{tool_result}\n```")
+                        logger.info(f"Tool result received (length: {len(str(tool_result))})")
+
+            # Add the final assistant response
+            response_text = response.text if response.text else ""
+            if response_parts:
+                # Combine tool calls + final response
+                full_response = "\n\n".join(response_parts) + "\n\n" + response_text
+            else:
+                # No tool calls detected, just return response
+                full_response = response_text
+
+            logger.debug(f"Assistant response: {full_response[:100]}...")
+            return full_response
 
         except Exception as e:
             error_msg = f"Error communicating with Azure AI: {e}"
