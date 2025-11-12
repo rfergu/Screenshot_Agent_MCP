@@ -157,16 +157,35 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
   - Message formatting and API calls
   - Thread state management
 
-### FR-010: Dual-Mode Chat Support
-- Support both local (Phi-3 Vision MLX) and remote (Azure OpenAI) chat clients
-- Mode selection priority: CLI flag > environment variable > config file > default (remote)
-- Local mode: Phi-3 wrapper implementing Agent Framework ChatClient protocol
-- Remote mode: AzureOpenAIChatClient with Azure credentials
-- Unified AgentClient interface for both modes with same ChatAgent and tool list
-- Configuration via `config/config.yaml` for mode settings
-- CLI shows current mode indicator
-- Credential validation only required for remote mode
-- Include demo comparison utility for side-by-side mode comparison
+### FR-010: Dual-Mode Support with Hybrid Local Architecture
+- **Mode Selection**: Support both local and remote operation
+  - Priority: CLI flag > environment variable > config file > default (remote)
+  - Interactive prompt if no mode specified
+- **Local Mode (Dual Model)**:
+  - Chat: AI Foundry Phi-4 via local inference server (foundry run phi-4)
+  - Vision: Phi-3 Vision MLX for screenshot analysis (phi-3-vision-mlx package)
+  - LocalFoundryChatClient implements Agent Framework ChatClient protocol
+  - Uses azure-ai-inference SDK for local endpoint communication
+  - Requires: AI Foundry CLI, Phi-4 downloaded, inference server running
+- **Remote Mode (Single Model)**:
+  - Chat + Vision: Azure OpenAI GPT-4o (same model for both)
+  - AzureOpenAIChatClient with Azure credentials
+  - Supports both Azure AI Foundry and Azure OpenAI endpoints
+- **Unified Interface**:
+  - Same AgentClient for both modes
+  - Same ChatAgent with identical tool list
+  - Same tool implementations (tools call different underlying models)
+  - Configuration via `config/config.yaml`
+  - CLI shows mode indicator
+- **Vision Processing**:
+  - VisionProcessor uses phi-3-vision-mlx in both modes
+  - Workaround for v0.0.3rc1 syntax error (patch and exec)
+  - Called by analyze_screenshot tool
+  - Separate from chat client layer
+- **Demo Support**:
+  - Interactive mode selection at startup
+  - Side-by-side comparison utility
+  - Clear documentation of dual vs single model architecture
 
 ## Non-Functional Requirements
 
@@ -232,8 +251,16 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
    - Still demonstrates clear tool abstraction through function interface
    - Future-ready for multi-agent patterns
 
-6. **Q: Why support both local (Phi-3) and remote (Azure OpenAI) modes?**
+6. **Q: Why support both local and remote modes?**
    A: Demonstrates Agent Framework's backend-agnostic design and provides user choice between privacy/cost (local) vs capability (remote).
+
+7. **Q: Why use two models for local mode (Phi-4 + Phi-3 Vision) instead of one?**
+   A: Separation of concerns - Phi-4 excels at chat/reasoning/tool calling, while Phi-3 Vision specializes in image understanding. This architecture:
+   - Uses each model for its strength
+   - Mirrors the remote architecture (chat layer + vision layer)
+   - Demonstrates that tools can call different backends
+   - Shows vision processing is separate from chat client
+   - Both modes use identical tool interface despite different underlying models
 
 ### Pending Clarifications
 - Exact format for renamed files (timestamp prefix?)
