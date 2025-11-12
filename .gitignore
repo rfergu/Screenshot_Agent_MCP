@@ -55,6 +55,11 @@ phi3_model/
 
 # Local test output
 test-output/
+test_screenshots/
+
+# Temporary test files (root-level only)
+/test_*.py
+/stdout.txt
 
 # Secrets (ensure this is in repo-wide policies)
 secrets/
