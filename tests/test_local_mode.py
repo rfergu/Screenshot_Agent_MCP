@@ -13,7 +13,8 @@ from azure.ai.inference.models import UserMessage, SystemMessage, AssistantMessa
 from phi3_chat_client import LocalFoundryChatClient
 
 # Test endpoint to use (avoids auto-detection in tests)
-TEST_ENDPOINT = "http://127.0.0.1:5272/v1/chat/completions"
+# Note: /v1 base - SDK appends /chat/completions → /v1/chat/completions
+TEST_ENDPOINT = "http://127.0.0.1:5272/v1"
 
 
 class TestMessageConversion:

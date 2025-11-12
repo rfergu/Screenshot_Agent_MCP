@@ -144,9 +144,9 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
                     endpoint_config = local_config["endpoint"]
                     logger.info(f"Using CLI endpoint: {endpoint_config}")
                 elif "port" in local_config:
-                    # Build endpoint from port
+                    # Build endpoint from port (/v1 base, SDK appends /chat/completions)
                     port = local_config["port"]
-                    endpoint_config = f"http://127.0.0.1:{port}/v1/chat/completions"
+                    endpoint_config = f"http://127.0.0.1:{port}/v1"
                     logger.info(f"Using CLI port {port}: {endpoint_config}")
 
             # Fall back to config file if no CLI override

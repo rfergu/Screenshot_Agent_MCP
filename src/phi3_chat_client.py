@@ -41,10 +41,11 @@ class LocalFoundryChatClient:
         """Initialize local AI Foundry chat client.
 
         Args:
-            endpoint: Local inference server endpoint. Options:
+            endpoint: Local inference server base URL (with /v1). Options:
                 - "auto" (default): Auto-detect via 'foundry service status'
-                - Specific URL: e.g., "http://127.0.0.1:60779/v1/chat/completions"
+                - Specific base URL: e.g., "http://127.0.0.1:60779/v1"
                 - None: Same as "auto"
+              Note: SDK appends /chat/completions → http://127.0.0.1:PORT/v1/chat/completions
             model: Model name to use (default: phi-4)
             **kwargs: Additional configuration options (for compatibility).
         """
@@ -65,11 +66,11 @@ class LocalFoundryChatClient:
                 self.auto_detected = True
                 logger.info(f"✓ Auto-detected Foundry endpoint: {self.endpoint}")
             else:
-                # Fallback to default
-                self.endpoint = "http://127.0.0.1:5272/v1/chat/completions"
+                # Fallback to default (/v1 base, SDK appends /chat/completions)
+                self.endpoint = "http://127.0.0.1:5272/v1"
                 logger.warning("⚠️  Could not auto-detect Foundry endpoint, using default port 5272")
                 logger.warning("    This may not work if service is on a different port")
-                logger.info("    Run 'foundry service status' to see actual endpoint")
+                logger.info("    Run 'foundry service status' to see actual port")
         else:
             # Use provided endpoint
             self.endpoint = endpoint
@@ -77,8 +78,8 @@ class LocalFoundryChatClient:
 
         # Detect the actual model ID from /v1/models endpoint
         # Foundry Local uses IDs like "Phi-4-generic-gpu:1" not "phi-4"
-        base_endpoint = self.endpoint.replace("/v1/chat/completions", "")
-        detected_model_id = detect_model_id(model, base_endpoint)
+        # Endpoint is already the base URL (SDK appends /chat/completions)
+        detected_model_id = detect_model_id(model, self.endpoint)
 
         if detected_model_id:
             self.model_name = detected_model_id
@@ -115,9 +116,8 @@ class LocalFoundryChatClient:
             self.endpoint = detected_endpoint
             logger.info(f"✓ Re-detected endpoint: {self.endpoint}")
 
-            # Re-detect model ID
-            base_endpoint = self.endpoint.replace("/v1/chat/completions", "")
-            detected_model_id = detect_model_id(self.model_name.split("-")[0].lower() if "-" in self.model_name else self.model_name, base_endpoint)
+            # Re-detect model ID (endpoint is already base URL)
+            detected_model_id = detect_model_id(self.model_name.split("-")[0].lower() if "-" in self.model_name else self.model_name, self.endpoint)
 
             if detected_model_id:
                 self.model_name = detected_model_id

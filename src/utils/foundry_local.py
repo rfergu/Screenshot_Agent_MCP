@@ -71,16 +71,15 @@ def detect_foundry_endpoint() -> Optional[str]:
 
         base_endpoint = match.group(0)
 
-        # Convert to chat completions endpoint
-        # From: http://127.0.0.1:60779
-        # To:   http://127.0.0.1:60779/v1/chat/completions
-        chat_endpoint = f"{base_endpoint}/v1/chat/completions"
-
-        logger.info(f"✓ Detected Foundry Local endpoint: {chat_endpoint}")
+        # Azure AI Inference SDK appends /chat/completions to endpoint
+        # Foundry Local expects /v1/chat/completions
+        # So we return http://127.0.0.1:PORT/v1 and SDK makes it /v1/chat/completions
+        foundry_endpoint = f"{base_endpoint}/v1"
+        logger.info(f"✓ Detected Foundry Local endpoint: {foundry_endpoint}")
 
         # Cache for session
-        _cached_endpoint = chat_endpoint
-        return chat_endpoint
+        _cached_endpoint = foundry_endpoint
+        return foundry_endpoint
 
     except FileNotFoundError:
         logger.warning("'foundry' command not found - is AI Foundry CLI installed?")
@@ -118,7 +117,11 @@ def detect_model_id(model_name: str, base_endpoint: str) -> Optional[str]:
 
     try:
         # Query /v1/models endpoint
-        models_url = f"{base_endpoint}/v1/models"
+        # Check if endpoint already has /v1 to avoid doubling the path
+        if base_endpoint.endswith('/v1'):
+            models_url = f"{base_endpoint}/models"
+        else:
+            models_url = f"{base_endpoint}/v1/models"
         logger.debug(f"Querying models list from {models_url}")
 
         response = requests.get(models_url, timeout=5)

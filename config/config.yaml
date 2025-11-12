@@ -25,8 +25,9 @@ local:
   # Chat model: AI Foundry Phi-4 (requires foundry service to be running)
   # Endpoint options:
   #   - "auto" (recommended): Auto-detect via 'foundry service status'
-  #   - Specific URL: e.g., "http://127.0.0.1:60779/v1/chat/completions"
+  #   - Specific base URL with /v1: e.g., "http://127.0.0.1:60779/v1"
   # Note: Foundry Local uses dynamically-allocated ports, so "auto" is best
+  # Note: SDK appends /chat/completions → http://127.0.0.1:PORT/v1/chat/completions
   endpoint: "auto"
   model: "phi-4"
 
