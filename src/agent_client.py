@@ -365,28 +365,24 @@ Be conversational and helpful within these limitations."""
         logger.debug(f"User message: {user_message}")
 
         try:
-            # Track message count before run to identify new messages
-            messages_before = len(thread.messages) if hasattr(thread, 'messages') else 0
-            logger.info(f"Messages before: {messages_before}")
-
             # Agent Framework handles all tool calling automatically
-            response = await self.agent.run(user_message, thread=thread)
+            # Pass tools explicitly to run() to ensure they're available
+            if self.agent.tools:
+                response = await self.agent.run(user_message, thread=thread, tools=self.agent.tools)
+            else:
+                response = await self.agent.run(user_message, thread=thread)
 
-            # Debug: inspect response object
-            logger.info(f"Response type: {type(response)}")
-            logger.info(f"Response has text: {hasattr(response, 'text')}")
-            if hasattr(response, 'text'):
-                logger.info(f"Response.text length: {len(response.text) if response.text else 0}")
-            logger.info(f"Messages after: {len(thread.messages) if hasattr(thread, 'messages') else 0}")
+            logger.debug(f"Response type: {type(response)}")
+            logger.debug(f"Response has text: {hasattr(response, 'text')}")
 
             # Build response with tool call transparency
-            # Only look at NEW messages from this turn
+            # Messages are in the RESPONSE, not the thread!
             response_parts = []
 
-            if hasattr(thread, 'messages') and len(thread.messages) > messages_before:
-                # Get only the new messages from this turn
-                new_messages = thread.messages[messages_before:]
-                logger.info(f"Processing {len(new_messages)} new messages")
+            if hasattr(response, 'messages') and response.messages:
+                # Get messages from this turn's response
+                new_messages = response.messages
+                logger.debug(f"Processing {len(new_messages)} messages from response")
 
                 for idx, msg in enumerate(new_messages):
                     logger.info(f"Message {idx}: role={getattr(msg, 'role', 'unknown')}, has_tool_calls={hasattr(msg, 'tool_calls')}")

@@ -25,6 +25,7 @@ This demonstrates Model Context Protocol (MCP) integration with Agent Framework.
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -70,11 +71,12 @@ class MCPClientWrapper:
         project_root = Path(__file__).parent.parent
 
         # Configure MCP server parameters
+        # Pass current environment to subprocess so it has access to Azure credentials
         server_params = StdioServerParameters(
             command=sys.executable,  # Use same Python interpreter
             args=["-m", "src", "server"],
             cwd=str(project_root),
-            env=None
+            env=dict(os.environ)  # Pass parent's environment variables
         )
 
         # Start MCP server and create session
@@ -415,13 +417,17 @@ def get_agent_framework_tools(mcp_client: MCPClientWrapper) -> List[Dict[str, An
     tools = []
 
     # Tool 1: list_screenshots
-    def list_screenshots_tool(
+    async def list_screenshots_tool(
         directory: Annotated[str, Field(description="Absolute path to directory to scan")],
         recursive: Annotated[bool, Field(description="Scan subdirectories")] = False,
         max_files: Annotated[Optional[int], Field(description="Max files to return")] = None
     ) -> Dict[str, Any]:
         """List screenshot files in a directory."""
-        return mcp_client.list_screenshots(directory, recursive, max_files)
+        return await mcp_client.call_tool_async("list_screenshots", {
+            "directory": directory,
+            "recursive": recursive,
+            "max_files": max_files
+        })
 
     tools.append({
         "function": list_screenshots_tool,
@@ -430,12 +436,15 @@ def get_agent_framework_tools(mcp_client: MCPClientWrapper) -> List[Dict[str, An
     })
 
     # Tool 2: analyze_screenshot
-    def analyze_screenshot_tool(
+    async def analyze_screenshot_tool(
         file_path: Annotated[str, Field(description="Absolute path to screenshot file")],
         force_vision: Annotated[bool, Field(description="Use vision model directly")] = False
     ) -> Dict[str, Any]:
         """Analyze screenshot content using OCR or vision model."""
-        return mcp_client.analyze_screenshot(file_path, force_vision)
+        return await mcp_client.call_tool_async("analyze_screenshot", {
+            "file_path": file_path,
+            "force_vision": force_vision
+        })
 
     tools.append({
         "function": analyze_screenshot_tool,
@@ -444,9 +453,9 @@ def get_agent_framework_tools(mcp_client: MCPClientWrapper) -> List[Dict[str, An
     })
 
     # Tool 3: get_categories
-    def get_categories_tool() -> Dict[str, Any]:
+    async def get_categories_tool() -> Dict[str, Any]:
         """Get list of available screenshot categories."""
-        return mcp_client.get_categories()
+        return await mcp_client.call_tool_async("get_categories", {})
 
     tools.append({
         "function": get_categories_tool,
@@ -455,12 +464,15 @@ def get_agent_framework_tools(mcp_client: MCPClientWrapper) -> List[Dict[str, An
     })
 
     # Tool 4: create_category_folder
-    def create_category_folder_tool(
+    async def create_category_folder_tool(
         category: Annotated[str, Field(description="Category name")],
         base_dir: Annotated[Optional[str], Field(description="Base directory")] = None
     ) -> Dict[str, Any]:
         """Create a category folder for organizing screenshots."""
-        return mcp_client.create_category_folder(category, base_dir)
+        return await mcp_client.call_tool_async("create_category_folder", {
+            "category": category,
+            "base_dir": base_dir
+        })
 
     tools.append({
         "function": create_category_folder_tool,
@@ -469,14 +481,19 @@ def get_agent_framework_tools(mcp_client: MCPClientWrapper) -> List[Dict[str, An
     })
 
     # Tool 5: move_screenshot
-    def move_screenshot_tool(
+    async def move_screenshot_tool(
         source_path: Annotated[str, Field(description="Source file path")],
         dest_folder: Annotated[str, Field(description="Destination folder path")],
         new_filename: Annotated[Optional[str], Field(description="New filename without extension")] = None,
         keep_original: Annotated[bool, Field(description="Copy instead of move")] = True
     ) -> Dict[str, Any]:
         """Move or copy a screenshot file to a destination folder."""
-        return mcp_client.move_screenshot(source_path, dest_folder, new_filename, keep_original)
+        return await mcp_client.call_tool_async("move_screenshot", {
+            "source_path": source_path,
+            "dest_folder": dest_folder,
+            "new_filename": new_filename,
+            "keep_original": keep_original
+        })
 
     tools.append({
         "function": move_screenshot_tool,

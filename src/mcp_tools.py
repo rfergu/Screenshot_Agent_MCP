@@ -28,7 +28,7 @@ from classifiers.keyword_classifier import KeywordClassifier
 from organizers.batch_processor import BatchProcessor
 from organizers.file_organizer import FileOrganizer
 from processors.ocr_processor import OCRProcessor
-from processors.vision_processor import VisionProcessor
+from processors.azure_vision_processor import AzureVisionProcessor
 from utils.config import get as config_get
 from utils.logger import get_logger
 
@@ -37,7 +37,7 @@ logger = get_logger(__name__)
 # Initialize processors and organizers at module level
 _ocr_min_words = config_get("processing.ocr_min_words", 10)
 _ocr_processor = OCRProcessor(min_words_threshold=_ocr_min_words)
-_vision_processor = VisionProcessor()
+_vision_processor = AzureVisionProcessor()
 _classifier = KeywordClassifier()
 
 _base_folder = config_get("organization.base_folder", "~/Screenshots/organized")
@@ -75,9 +75,11 @@ def list_screenshots(
         - total_count: Total number of files found
         - truncated: Whether the list was truncated due to max_files limit
     """
-    dir_path = Path(directory).expanduser()
+    # Normalize path by removing shell escape characters
+    normalized_dir = directory.replace('\\ ', ' ')  # Handle escaped spaces from shell
+    dir_path = Path(normalized_dir).expanduser()
     if not dir_path.exists():
-        raise FileNotFoundError(f"Directory not found: {directory}")
+        raise FileNotFoundError(f"Directory not found: {normalized_dir}")
 
     logger.info(f"Listing screenshots in {directory} (recursive={recursive})")
 
@@ -137,9 +139,11 @@ def analyze_screenshot(
         - success: Whether analysis succeeded
         - error: Error message if failed (None if successful)
     """
-    path_obj = Path(file_path).expanduser()
+    # Normalize path by removing shell escape characters
+    normalized_path = file_path.replace('\\ ', ' ')  # Handle escaped spaces from shell
+    path_obj = Path(normalized_path).expanduser()
     if not path_obj.exists():
-        raise FileNotFoundError(f"Screenshot file not found: {file_path}")
+        raise FileNotFoundError(f"Screenshot file not found: {normalized_path}")
 
     logger.info(f"Analyzing screenshot: {file_path} (force_vision={force_vision})")
     start_time = time.perf_counter()
@@ -167,20 +171,31 @@ def analyze_screenshot(
         else:
             # Try OCR first
             logger.debug("Attempting OCR extraction")
-            ocr_result = _ocr_processor.process(path_obj)
-            response.update({
-                "extracted_text": ocr_result.text,
-                "word_count": ocr_result.word_count,
-                "processing_method": "ocr",
-                "success": True
-            })
+            try:
+                ocr_result = _ocr_processor.process(path_obj)
+                response.update({
+                    "extracted_text": ocr_result.text,
+                    "word_count": ocr_result.word_count,
+                    "processing_method": "ocr",
+                    "success": True
+                })
 
-            # If insufficient text, add vision description
-            if not ocr_result.sufficient_text:
-                logger.debug("Insufficient OCR text, adding vision analysis")
+                # If insufficient text, add vision description
+                if not ocr_result.sufficient_text:
+                    logger.debug("Insufficient OCR text, adding vision analysis")
+                    vision_result = _vision_processor.process(path_obj)
+                    response["vision_description"] = vision_result.description
+                    response["processing_method"] = "vision"
+
+            except Exception as ocr_error:
+                # OCR failed, fall back to vision processing
+                logger.warning(f"OCR failed ({ocr_error}), falling back to vision model")
                 vision_result = _vision_processor.process(path_obj)
-                response["vision_description"] = vision_result.description
-                response["processing_method"] = "vision"
+                response.update({
+                    "vision_description": vision_result.description,
+                    "processing_method": "vision",
+                    "success": True
+                })
 
         response["processing_time_ms"] = (time.perf_counter() - start_time) * 1000
 
@@ -304,7 +319,12 @@ def create_category_folder(
         - created: Whether the folder was newly created (False if it already existed)
         - success: Whether operation succeeded
     """
-    base = Path(base_dir).expanduser() if base_dir else Path(_base_folder).expanduser()
+    # Normalize path by removing shell escape characters
+    if base_dir:
+        normalized_base = base_dir.replace('\\ ', ' ')  # Handle escaped spaces from shell
+        base = Path(normalized_base).expanduser()
+    else:
+        base = Path(_base_folder).expanduser()
     category_path = base / category
 
     logger.info(f"Creating category folder: {category_path}")
@@ -349,13 +369,17 @@ def move_screenshot(
         - success: Whether operation succeeded
         - error: Error message if failed (None if successful)
     """
-    source = Path(source_path).expanduser()
-    if not source.exists():
-        raise FileNotFoundError(f"Source file not found: {source_path}")
+    # Normalize paths by removing shell escape characters
+    normalized_source = source_path.replace('\\ ', ' ')  # Handle escaped spaces from shell
+    normalized_dest = dest_folder.replace('\\ ', ' ')  # Handle escaped spaces from shell
 
-    dest_dir = Path(dest_folder).expanduser()
+    source = Path(normalized_source).expanduser()
+    if not source.exists():
+        raise FileNotFoundError(f"Source file not found: {normalized_source}")
+
+    dest_dir = Path(normalized_dest).expanduser()
     if not dest_dir.exists():
-        raise FileNotFoundError(f"Destination folder not found: {dest_folder}")
+        raise FileNotFoundError(f"Destination folder not found: {normalized_dest}")
 
     # Determine destination filename
     if new_filename:

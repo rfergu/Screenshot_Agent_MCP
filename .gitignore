@@ -64,3 +64,10 @@ test_screenshots/
 # Secrets (ensure this is in repo-wide policies)
 secrets/
 
+# Deprecated files
+*.deprecated
+
+# Model files (Phi-3 Vision, etc.)
+phi3v/
+phi3_model/
+

@@ -4,7 +4,7 @@
 Screenshot Organizer with Local AI Processing
 
 ## Feature Description
-A terminal-based tool that intelligently organizes screenshots using AI models (OCR and vision) with Microsoft Agent Framework orchestration. Demonstrates **Agent Framework WITH MCP Client Integration** - a modern architecture where the Agent Framework contains an embedded MCP client that connects to an MCP server for all file operations. Supports dual-mode operation: local testing mode (Phi-4-mini for basic chat, no tools) or remote production mode (Azure OpenAI GPT-4 with full MCP tool support). Demonstrates the reality of production AI agent development: small local models for quick testing, large remote models for reliable production capabilities with standardized tool integration via Model Context Protocol (MCP).
+A terminal-based tool that intelligently organizes screenshots using AI models (OCR and Azure GPT-4o Vision) with Microsoft Agent Framework orchestration. Demonstrates **Agent Framework WITH MCP Client Integration** - a modern architecture where the Agent Framework contains an embedded MCP client that connects to an MCP server for all file operations. Supports dual-mode operation: local testing mode (Phi-4-mini for basic chat, no tools) or remote production mode (Azure OpenAI GPT-4o with full MCP tool support including vision). Demonstrates the reality of production AI agent development: small local models for quick testing, large remote models for reliable production capabilities with standardized tool integration via Model Context Protocol (MCP).
 
 ## User Stories
 
@@ -15,12 +15,11 @@ A terminal-based tool that intelligently organizes screenshots using AI models (
 
 **Acceptance Criteria:**
 - System attempts OCR first for text extraction
-- If OCR yields >10 words, uses keyword-based classification
-- If OCR yields <10 words, uses local Phi-3 Vision model
+- If OCR fails or yields insufficient text, falls back to Azure GPT-4o Vision
 - Returns category (code/errors/documentation/design/communication/memes/other)
 - Suggests descriptive filename based on content
 - Reports processing method used and time taken
-- Never sends image data to external APIs
+- Uses Azure GPT-4o Vision for reliable image understanding
 
 ### US-002: Batch Process Screenshots
 **As a** user with a folder full of screenshots  
@@ -72,11 +71,11 @@ A terminal-based tool that intelligently organizes screenshots using AI models (
 **So that** I understand how the tool is performing  
 
 **Acceptance Criteria:**
-- Shows processing method (OCR or Vision) for each file
+- Shows processing method (OCR or Azure Vision) for each file
 - Displays processing time per file
 - Shows batch statistics (files per method, total time)
-- Reports cost savings by using local processing (only metadata sent to Azure AI)
-- Indicates when vision model is downloading/loading
+- Reports when Azure GPT-4o Vision is used (cloud API call)
+- Clear indication of OCR vs cloud vision processing for cost awareness
 
 ## Functional Requirements
 
@@ -87,10 +86,11 @@ A terminal-based tool that intelligently organizes screenshots using AI models (
 - Process text-heavy screenshots in <50ms
 
 ### FR-002: Vision Model Processing
-- Use Phi-3 Vision MLX for visual analysis
-- Only triggered when OCR yields insufficient text (<10 words)
-- Process visual content in <2 seconds
-- Auto-download model on first use (~8GB)
+- Use Azure GPT-4o Vision for visual analysis (remote mode)
+- Triggered when OCR fails or yields insufficient text
+- Process visual content via Azure OpenAI API
+- Images encoded as base64 and sent to GPT-4o vision endpoint
+- Returns structured JSON with category, description, and suggested filename
 
 ### FR-003: Classification Logic
 - Implement keyword-based classification for OCR results
@@ -103,18 +103,19 @@ A terminal-based tool that intelligently organizes screenshots using AI models (
   - other: Default if no patterns match
 
 ### FR-004: MCP Tool Implementation (Remote Mode Only)
-- Implement 7 low-level file operation tools via MCP server:
+- Implement 5 essential file operation tools via MCP server:
   1. `list_screenshots(directory, recursive, max_files)` - List screenshot files
-  2. `analyze_screenshot(file_path, force_vision)` - Extract text/description (returns facts, not decisions)
-  3. `get_categories()` - Get available categories with keyword lists
-  4. `categorize_screenshot(text, description)` - Keyword-based fallback classification
-  5. `create_category_folder(category, base_path)` - Create category folder
-  6. `move_screenshot(source_path, destination_folder, new_filename, archive_original)` - Move/rename file
-  7. `generate_filename(base_name, extension, destination_folder)` - Generate safe filename
+  2. `analyze_screenshot(file_path, force_vision)` - Extract text/description using OCR or Azure GPT-4o Vision
+  3. `get_categories()` - Get available categories with descriptions
+  4. `create_category_folder(category, base_dir)` - Create category folder
+  5. `move_screenshot(source_path, dest_folder, new_filename, keep_original)` - Move/copy/rename file
 - MCP server runs as subprocess, accessed via stdio transport
 - MCP client embedded inside Agent Framework (MCPClientWrapper)
-- Agent Framework (GPT-4) makes intelligent decisions (categories, filenames)
-- Tools return facts; Agent provides intelligence and orchestration
+- **Critical**: MCP server subprocess must receive parent's environment variables for Azure credentials
+- **Critical**: Tool wrapper functions must be async (Agent Framework calls them from async context)
+- **Critical**: Path normalization needed to handle shell-escaped spaces in file paths
+- Agent Framework (GPT-4o) makes intelligent decisions (categories, filenames, orchestration)
+- Tools return facts; Agent provides intelligence
 - Local mode has NO tools (testing conversation flow only)
 
 ### FR-005: File Management
@@ -194,10 +195,10 @@ A terminal-based tool that intelligently organizes screenshots using AI models (
 - **Remote Mode (PRODUCTION)**:
   - Purpose: Full AI agent capabilities with reliable tool support
   - Chat: Azure OpenAI GPT-4o with complete tool calling support
-  - **Full MCP tool support** - 7 low-level file operation tools via MCP server
+  - **Full MCP tool support** - 5 essential file operation tools via MCP server
   - **MCP Architecture Active**: Agent Framework WITH embedded MCP client
   - All file system operations mediated through MCP protocol
-  - Screenshot analysis with GPT-4 Vision or fallback to local Phi-3 Vision MLX
+  - Screenshot analysis with OCR (local tesseract) and Azure GPT-4o Vision (cloud fallback)
   - Complete file organization capabilities
   - AzureOpenAIChatClient with Azure credentials
   - Supports both Azure AI Foundry and Azure OpenAI endpoints
@@ -212,20 +213,23 @@ A terminal-based tool that intelligently organizes screenshots using AI models (
   - Local small models (Phi-4-mini) do NOT reliably support function calling
   - Remote large models (GPT-4o) have robust tool calling support
   - This demonstrates production AI agent development reality: use appropriate models for the task
-  - Privacy-focused users should use remote mode with local Vision fallback (images stay local)
+  - OCR (tesseract) processes text-heavy screenshots locally before cloud vision fallback
+  - Azure GPT-4o Vision provides production-ready image understanding
 
 ## Non-Functional Requirements
 
 ### NFR-001: Performance
-- OCR processing: <50ms per image
-- Vision processing: <2s per image
+- OCR processing: <100ms per image (local tesseract)
+- Azure GPT-4o Vision processing: <3s per image (includes API latency)
 - Batch processing: Linear scaling with file count
+- Network-dependent for vision fallback (requires internet connectivity)
 
 ### NFR-002: Privacy
-- Image data only sent to Azure OpenAI when using GPT-4 Vision (remote mode)
-- Local Phi-3 Vision MLX used as fallback when available (no external transmission)
-- Remote mode can be configured to use local vision processing for privacy
+- Image data sent to Azure OpenAI GPT-4o Vision when OCR fails (remote mode)
+- Images encoded as base64 and transmitted over HTTPS
+- OCR processing happens locally when possible (tesseract)
 - Local mode (testing only) does not process images at all
+- Azure data processing complies with Microsoft's data handling policies
 
 ### NFR-003: Usability
 - Clear command-line interface
@@ -272,7 +276,7 @@ A terminal-based tool that intelligently organizes screenshots using AI models (
 
 5. **Q: Why use MCP architecture (Agent Framework WITH MCP Client)?**
    A: This unified architecture demonstrates modern AI agent development:
-   - **Separation of Concerns**: Brain (Agent Framework/GPT-4) vs Hands (MCP Server)
+   - **Separation of Concerns**: Brain (Agent Framework/GPT-4o) vs Hands (MCP Server)
    - **Protocol Standardization**: All file operations through standardized MCP protocol
    - **Clear Boundaries**: Tools return facts, Agent makes decisions
    - **Educational Value**: Shows how to integrate MCP with Agent Framework
@@ -280,6 +284,11 @@ A terminal-based tool that intelligently organizes screenshots using AI models (
    - **Flexibility**: MCP tools can be reused by other MCP clients
    - **Demonstrations**: Shows both Agent Framework capabilities AND MCP protocol integration
    - Agent provides intelligence (categorization, naming), MCP provides operations (file access)
+   - **Key Implementation Lessons**:
+     - Tool wrappers must be async (Agent Framework calls from async context)
+     - MCP subprocess needs parent environment variables for Azure credentials
+     - Path normalization required for shell-escaped file paths
+     - OCR failures should gracefully fall back to vision processing
 
 6. **Q: Why support both local and remote modes?**
    A: Demonstrates the reality of production AI agent development: local small models are good for testing conversation flow but unreliable for tool calling. Remote large models (GPT-4) provide production-ready capabilities. This shows developers the tradeoffs between cost/privacy (local testing) vs reliability/capability (remote production).
@@ -287,11 +296,65 @@ A terminal-based tool that intelligently organizes screenshots using AI models (
 7. **Q: Why doesn't local mode have tools if the spec originally called for them?**
    A: Through implementation we discovered that Phi-4-mini's function calling is unreliable (ignores tools, hallucinates responses, garbled JSON). Rather than providing a broken experience, local mode focuses on what small models do well: basic chat for testing agent instructions. This is more honest about current AI model capabilities and shows production development reality.
 
-8. **Q: How can users maintain privacy if local mode doesn't process images?**
-   A: Remote mode can be configured to use local Phi-3 Vision MLX as fallback for screenshot analysis, keeping images on-device while using GPT-4 for orchestration and tool calling.
+8. **Q: Why use Azure GPT-4o Vision instead of local Phi-3 Vision?**
+   A: Through implementation we discovered that Phi-3 Vision MLX has significant issues:
+   - Missing 592 model parameters (vision encoder weights not loading properly)
+   - Syntax errors in the phi-3-vision-mlx package requiring runtime patching
+   - Unreliable for production use on macOS
+   - Azure GPT-4o Vision provides robust, production-ready image understanding
+   - Tesseract OCR handles text-heavy screenshots locally before falling back to cloud vision
 
 ### Pending Clarifications
 - Exact format for renamed files (timestamp prefix?)
 - Maximum batch size limitations
 - Configuration file format and location
 - Logging verbosity levels and output destination
+
+## Implementation Lessons Learned
+
+### Key Technical Discoveries
+
+1. **MCP Subprocess Environment Variables**
+   - **Issue**: MCP server subprocess had `env=None`, causing Azure credentials to be unavailable
+   - **Solution**: Pass `env=dict(os.environ)` to subprocess so it inherits parent environment
+   - **Impact**: Critical for cloud service integration (Azure OpenAI credentials)
+
+2. **Async Tool Wrapper Requirements**
+   - **Issue**: Tool wrappers were synchronous, but Agent Framework calls them from async context
+   - **Symptom**: `RuntimeWarning: coroutine 'call_tool_async' was never awaited`
+   - **Solution**: Make all tool wrapper functions `async def` and directly `await` MCP calls
+   - **Root Cause**: Agent Framework's `agent.run()` is async and calls tools from running event loop
+
+3. **Path Normalization for Shell Escaping**
+   - **Issue**: File paths with spaces received as `path\ with\ spaces` (shell-escaped)
+   - **Solution**: Add `.replace('\\ ', ' ')` normalization in all path-handling tools
+   - **Impact**: Prevents "file not found" errors when users paste shell-escaped paths
+
+4. **OCR Fallback to Vision Processing**
+   - **Issue**: Tesseract has Unicode decoding bugs with certain images
+   - **Solution**: Catch OCR exceptions in `mcp_tools.py` and automatically fall back to Azure Vision
+   - **Pattern**: Try local processing first, gracefully degrade to cloud when needed
+
+5. **Phi-3 Vision MLX Not Production-Ready**
+   - **Issue**: Missing 592 vision encoder parameters, syntax errors in package
+   - **Decision**: Use Azure GPT-4o Vision instead of problematic local model
+   - **Tradeoff**: Privacy/cost vs reliability - chose reliability for production use
+
+6. **Agent Framework Tool Integration**
+   - **Discovery**: Tools are registered once at agent initialization, called automatically
+   - **Pattern**: Agent Framework handles tool orchestration, no manual tool routing needed
+   - **Benefit**: GPT-4o intelligently decides when and how to use tools
+
+### Architecture Validation
+
+The final working architecture validates the MCP integration approach:
+- **Brain (Agent Framework + GPT-4o)**: Intelligent orchestration, decision-making
+- **Hands (MCP Server)**: Low-level file operations, fact gathering
+- **Bridge (MCP Client Wrapper)**: Async tool wrappers, environment propagation
+- **Vision (Azure GPT-4o)**: Reliable image understanding when OCR insufficient
+
+This demonstrates that production AI agents require:
+- Robust cloud models for tool calling (local small models unreliable)
+- Proper async patterns throughout the stack
+- Graceful fallback strategies for local processing
+- Environment configuration passed to all subprocess components
