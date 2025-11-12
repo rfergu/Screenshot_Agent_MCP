@@ -185,7 +185,7 @@ class LocalFoundryChatClient:
             logger.debug(f"🏠 LOCAL: Generated {len(response_text)} characters")
 
             # Return ChatResponse object
-            return ChatResponse(content=response_text)
+            return ChatResponse(text=response_text)
 
         except Exception as e:
             logger.error(f"Error generating local response: {e}", exc_info=True)
@@ -196,7 +196,7 @@ class LocalFoundryChatClient:
                 "  foundry run phi-4\n\n"
                 "Or switch to remote mode: --mode remote"
             )
-            return ChatResponse(content=error_msg)
+            return ChatResponse(text=error_msg)
 
     # Additional methods for compatibility with Agent Framework
 

@@ -102,6 +102,33 @@ class TestMessageConversion:
         assert result[0].content == ""
 
 
+class TestErrorHandling:
+    """Test error handling when server is not running."""
+
+    @pytest.mark.asyncio
+    async def test_server_not_running_returns_helpful_error(self):
+        """Test that a helpful error message is returned when server is down.
+
+        This test should PASS even when server is not running - it verifies
+        the error handling works correctly.
+        """
+        client = LocalFoundryChatClient()
+
+        # Only run this test if server is NOT running
+        if client._check_server_connection():
+            pytest.skip("AI Foundry server IS running - this test is for when it's down")
+
+        # Try to get a response when server is down
+        response = await client.get_response("What is 5 + 5?")
+
+        # Should get a ChatResponse with helpful error message, not an exception
+        assert response is not None
+        assert response.text is not None
+        assert "AI Foundry server" in response.text
+        assert "foundry run phi-4" in response.text
+        assert "--mode remote" in response.text
+
+
 @pytest.mark.integration
 class TestLocalModeIntegration:
     """Integration tests for local mode (requires AI Foundry server running)."""
@@ -123,9 +150,9 @@ class TestLocalModeIntegration:
         response = await client.get_response("What is 5 + 5?")
 
         assert response is not None
-        assert response.content is not None
-        assert len(response.content) > 0
-        assert "10" in response.content.lower()
+        assert response.text is not None
+        assert len(response.text) > 0
+        assert "10" in response.text.lower()
 
     @pytest.mark.asyncio
     async def test_conversation_context(self):
@@ -150,7 +177,7 @@ class TestLocalModeIntegration:
         response = await client.get_response(messages)
 
         assert response is not None
-        assert "blue" in response.content.lower()
+        assert "blue" in response.text.lower()
 
 
 if __name__ == "__main__":
