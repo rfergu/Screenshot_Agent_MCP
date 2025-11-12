@@ -8,21 +8,23 @@ A conversational AI agent that intelligently organizes screenshots through natur
 
 ## User Stories
 
-### US-001: Proactive Agent Introduction and Discovery
+### US-001: Proactive Agent Introduction and Discovery ✅ IMPLEMENTED
 **As a** user starting the agent
 **I want** the agent to introduce itself and proactively guide me
 **So that** I understand what it can do and how to begin
 
 **Acceptance Criteria:**
-- Agent introduces itself on startup with clear capabilities description
-- Proactively asks where user keeps screenshots
-- Uses MCP tools to list files in provided directory
-- Reports file count with contextual description (small/moderate/large collection)
-- Suggests appropriate approach based on collection size:
+- Agent introduces itself on startup with clear capabilities description ✅
+- Proactively asks where user keeps screenshots ✅
+- Uses MCP tools to list files in provided directory ✅
+- Reports file count with contextual description (small/moderate/large collection) ✅
+- Suggests appropriate approach based on collection size: ✅
   - Small (1-10): Offer manual review option
   - Moderate (11-30): Suggest preview sampling
   - Large (30+): Recommend direct batch processing
-- Maintains conversational, helpful tone throughout
+- Maintains conversational, helpful tone throughout ✅
+
+**Implementation:** See `src/agent_client.py` lines 59-164 (REMOTE_SYSTEM_PROMPT)
 
 ### US-002: Intelligent Content Preview and Pattern Recognition
 **As a** user with a moderate screenshot collection
@@ -261,29 +263,33 @@ A conversational AI agent that intelligently organizes screenshots through natur
   - Facts and data (not decisions)
   - Standardized tool interface via MCP protocol
 
-### FR-010: Conversational Agent Intelligence and Proactive Guidance
-- **Proactive Introduction**: Agent introduces itself on startup with clear capability description
-- **Guided Discovery**: Automatically asks for screenshot directory location
-- **Adaptive Behavior**: Adjusts strategy based on file count (small/moderate/large)
-- **Context-Aware Suggestions**: Recommends preview sampling, manual review, or batch processing based on collection size
-- **Natural Language Flow**: Maintains conversational tone throughout all interactions
-- **User Confirmation**: Always confirms plans before executing operations
+### FR-010: Conversational Agent Intelligence and Proactive Guidance ✅ IMPLEMENTED
+- **Proactive Introduction**: Agent introduces itself on startup with clear capability description ✅
+- **Guided Discovery**: Automatically asks for screenshot directory location ✅
+- **Adaptive Behavior**: Adjusts strategy based on file count (small/moderate/large) ✅
+- **Context-Aware Suggestions**: Recommends preview sampling, manual review, or batch processing based on collection size ✅
+- **Natural Language Flow**: Maintains conversational tone throughout all interactions ✅
+- **User Confirmation**: Always confirms plans before executing operations ✅
 
-### FR-011: Intelligent Content Analysis and Pattern Recognition
-- **Strategic Sampling**: For moderate collections (11-30 files), sample 3-4 files with varied naming patterns
-- **Visual Analysis**: Use Azure GPT-4o Vision to analyze sampled screenshots via MCP tools
-- **Content Extraction**: Extract specific details:
+**Implementation:** See `src/agent_client.py` lines 59-164 (REMOTE_SYSTEM_PROMPT) and `src/cli_interface.py` lines 152-169 (proactive introduction trigger)
+
+### FR-011: Intelligent Content Analysis and Pattern Recognition ✅ IMPLEMENTED
+- **Strategic Sampling**: For moderate collections (11-30 files), sample 3-4 files with varied naming patterns ✅
+- **Visual Analysis**: Use Azure GPT-4o Vision to analyze sampled screenshots via MCP tools ✅
+- **Content Extraction**: Extract specific details: ✅
   - Invoice: company name, amount, date
   - Error: error type, service name, message excerpt
   - Design: design type, tool used
   - Documentation: topic, format
-- **Pattern Recognition**: Identify common content types across samples
-- **Category Suggestions**: Suggest categories based on actual content found (not generic defaults)
-- **User Validation**: Ask user if suggested categories make sense and allow modifications
-- **MCP Tool Visibility**: Show [MCP Tool Call] annotations during analysis
+- **Pattern Recognition**: Identify common content types across samples ✅
+- **Category Suggestions**: Suggest categories based on actual content found (not generic defaults) ✅
+- **User Validation**: Ask user if suggested categories make sense and allow modifications ✅
+- **MCP Tool Visibility**: Show [MCP Tool Call] annotations during analysis ✅
 
-### FR-012: Flexible Naming Strategies
-- **Three Strategy Options**:
+**Implementation:** See `src/agent_client.py` lines 59-164 (REMOTE_SYSTEM_PROMPT, Phase 3: Preview & Pattern Recognition)
+
+### FR-012: Flexible Naming Strategies ✅ IMPLEMENTED
+- **Three Strategy Options**: ✅
   1. **Smart Naming**: Extract meaningful content from screenshots
      - Example: `invoice_acme_corp_2024_11_1234usd.png`
      - Example: `error_azure_connection_timeout.png`
@@ -292,41 +298,50 @@ A conversational AI agent that intelligently organizes screenshots through natur
      - Example: `2024-11-12_invoice_1.png`
      - Example: `2024-11-12_error_1.png`
   3. **Keep Originals**: Maintain original names, organize into category folders only
-- **Strategy Explanation**: Explain tradeoffs of each approach
-- **User Choice**: Allow user to select preferred strategy
-- **Persistent Memory**: Remember chosen strategy throughout session
+- **Strategy Explanation**: Explain tradeoffs of each approach ✅
+- **User Choice**: Allow user to select preferred strategy ✅
+- **Persistent Memory**: Remember chosen strategy throughout session ✅
 
-### FR-013: Real-Time Progress and Contextual Updates
-- **Per-File Updates**: Show format `original_name → identified_content → new_location/name`
-- **MCP Tool Annotations**: Display tool calls: `[MCP Tool Call: create_category_folder(...)]`
-- **Progress Summaries**: Provide summary every 5-6 files processed
-- **Adaptive Verbosity**: Less detail for large batches, more detail for small collections
-- **Content-Specific Details**: Show extracted information (amounts, dates, error types)
-- **Operation Indicators**: Clearly indicate when creating folders, analyzing files, moving files
+**Implementation:** See `src/agent_client.py` lines 59-164 (REMOTE_SYSTEM_PROMPT, Phase 4: Choose Naming Strategy)
 
-### FR-014: Intelligent Summary with Content Understanding
-- **Category Counts**: Report specific counts for each category
-- **Extracted Insights**: Show aggregate understanding:
+### FR-013: Real-Time Progress and Contextual Updates ✅ IMPLEMENTED
+- **Per-File Updates**: Show format `original_name → identified_content → new_location/name` ✅
+- **MCP Tool Annotations**: Display tool calls: `[MCP Tool Call: create_category_folder(...)]` ✅
+- **Progress Summaries**: Provide summary every 5-6 files processed ✅
+- **Adaptive Verbosity**: Less detail for large batches, more detail for small collections ✅
+- **Content-Specific Details**: Show extracted information (amounts, dates, error types) ✅
+- **Operation Indicators**: Clearly indicate when creating folders, analyzing files, moving files ✅
+
+**Implementation:** See `src/agent_client.py` lines 59-164 (REMOTE_SYSTEM_PROMPT, Phase 5: Execute Organization)
+
+### FR-014: Intelligent Summary with Content Understanding ✅ IMPLEMENTED
+- **Category Counts**: Report specific counts for each category ✅
+- **Extracted Insights**: Show aggregate understanding: ✅
   - Invoices: "6 invoices totaling $8,422"
   - Errors: "5 error screenshots: 3 Azure, 2 Python"
   - Designs: "4 mobile UI designs"
-- **Content Demonstration**: Prove agent understood content, not just moved files
-- **Proactive Help**: Ask if user wants help finding anything specific
-- **Context Maintenance**: Maintain memory of organized files for follow-up questions
+- **Content Demonstration**: Prove agent understood content, not just moved files ✅
+- **Proactive Help**: Ask if user wants help finding anything specific ✅
+- **Context Maintenance**: Maintain memory of organized files for follow-up questions ✅
 
-### FR-015: Contextual Memory and Follow-Up Questions
-- **Content Recall**: Remember specific files and their analyzed content
-- **Intelligent Re-Analysis**: Use MCP tools to re-read files for detailed follow-up questions
-- **Contextual Responses**: Provide specific answers (e.g., "The Azure errors were connection timeouts to storage account...")
-- **Location Assistance**: Help locate files by description or content
-- **Multi-Turn Context**: Maintain conversation state across multiple questions
-- **Efficient References**: Don't re-explain everything, reference prior analysis
+**Implementation:** See `src/agent_client.py` lines 59-164 (REMOTE_SYSTEM_PROMPT, Phase 6: Intelligent Summary)
 
-### FR-016: Dual-Mode Support - Testing vs Production Architecture
-- **Mode Selection**: Support both local and remote operation
-  - Priority: CLI flag > environment variable > config file > default (remote)
-  - Interactive prompt if no mode specified
-  - **Recommended:** Always use remote for production work
+### FR-015: Contextual Memory and Follow-Up Questions ✅ IMPLEMENTED
+- **Content Recall**: Remember specific files and their analyzed content ✅
+- **Intelligent Re-Analysis**: Use MCP tools to re-read files for detailed follow-up questions ✅
+- **Contextual Responses**: Provide specific answers (e.g., "The Azure errors were connection timeouts to storage account...") ✅
+- **Location Assistance**: Help locate files by description or content ✅
+- **Multi-Turn Context**: Maintain conversation state across multiple questions ✅
+- **Efficient References**: Don't re-explain everything, reference prior analysis ✅
+
+**Implementation:** See `src/agent_client.py` lines 59-164 (REMOTE_SYSTEM_PROMPT, Phase 7: Contextual Follow-Up) and `src/session_manager.py` (thread persistence)
+
+### FR-016: Dual-Mode Support - Testing vs Production Architecture ✅ IMPLEMENTED
+- **Mode Selection**: Support both local and remote operation ✅
+  - CLI flag: `--local` for local mode, no flag = remote mode (default) ✅
+  - Remote mode is production default ✅
+  - **Recommended:** Always use remote for production work ✅
+  - **Setup Instructions:** See README.md for complete installation and setup guide for both modes ✅
 - **Local Mode (TESTING ONLY)**:
   - Purpose: Quick testing of agent conversation flow and instructions
   - Chat: AI Foundry Phi-4-mini via local inference server (foundry run phi-4-mini)
@@ -360,6 +375,13 @@ A conversational AI agent that intelligently organizes screenshots through natur
   - This demonstrates production AI agent development reality: use appropriate models for the task
   - OCR (tesseract) processes text-heavy screenshots locally before cloud vision fallback
   - Azure GPT-4o Vision provides production-ready image understanding
+
+**Implementation:**
+- CLI interface: `src/cli_interface.py` lines 234-238 (`--local` flag)
+- Local mode system prompt: `src/agent_client.py` lines 167-197 (LOCAL_SYSTEM_PROMPT)
+- Remote mode system prompt: `src/agent_client.py` lines 59-164 (REMOTE_SYSTEM_PROMPT)
+- Mode-specific agent initialization: `src/agent_client.py` lines 76-150
+- Local chat client: `src/local_foundry_chat_client.py`
 
 ## Non-Functional Requirements
 
@@ -400,8 +422,10 @@ A conversational AI agent that intelligently organizes screenshots through natur
 - [x] Microsoft Agent Framework integration specified
 - [x] Tool function architecture defined
 - [x] Dual Azure endpoint support documented
-- [x] Hybrid local/remote architecture documented (FR-010)
-- [x] Mode selection priority clearly defined
+- [x] Hybrid local/remote architecture documented (FR-016)
+- [x] Mode selection with `--local` flag implemented (FR-016)
+- [x] Proactive conversational UX implemented (US-001, FR-010 through FR-015)
+- [x] Setup instructions documented in README.md for both modes
 - [x] Demo comparison utility specified
 
 ## Open Questions & Clarifications
