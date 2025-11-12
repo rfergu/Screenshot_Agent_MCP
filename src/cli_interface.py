@@ -224,19 +224,20 @@ def main(session: Optional[str], mode: Optional[str], config: Optional[Path], de
 
     Supports two operation modes:
 
-    LOCAL MODE (--mode local):
+    LOCAL MODE:
       • Fully on-device with Phi-3 Vision MLX
       • Zero cost per query, complete privacy
       • No cloud dependencies or API keys needed
       • Requires: pip install phi-3-vision-mlx
 
-    REMOTE MODE (--mode remote):
+    REMOTE MODE:
       • Azure OpenAI cloud-powered
       • More capable models (GPT-4, etc.)
-      • Requires Azure credentials
+      • Requires Azure credentials configured
 
-    If --mode is not specified, uses configuration file or SCREENSHOT_ORGANIZER_MODE
-    environment variable (defaults to 'remote').
+    Mode Selection:
+      • If --mode flag provided: Uses specified mode
+      • If no flag: Interactive prompt at startup
 
     Required environment variables for REMOTE mode:
       AZURE_AI_CHAT_ENDPOINT - Your Azure endpoint (Foundry or Azure OpenAI)
@@ -260,10 +261,41 @@ def main(session: Optional[str], mode: Optional[str], config: Optional[Path], de
     else:
         load_config()
 
-    # Determine mode (for validation)
+    # Interactive mode selection if not specified via CLI
     import os
     from utils.config import get_mode
-    actual_mode = mode or get_mode()
+
+    if mode is None:
+        console = Console()
+        console.print()
+        console.print(Panel.fit(
+            "[bold cyan]Screenshot Organizer[/bold cyan]\n\n"
+            "Select operation mode:",
+            border_style="cyan"
+        ))
+        console.print()
+        console.print("[bold]1.[/bold] [green]Local Mode[/green] (Phi-3 Vision MLX)")
+        console.print("   • Fully on-device, complete privacy")
+        console.print("   • Zero cost per query")
+        console.print("   • Requires: phi-3-vision-mlx package")
+        console.print()
+        console.print("[bold]2.[/bold] [cyan]Remote Mode[/cyan] (Azure OpenAI)")
+        console.print("   • Cloud-powered, more capable")
+        console.print("   • Requires: Azure credentials")
+        console.print("   • ~$0.01-0.05 per query")
+        console.print()
+
+        choice = Prompt.ask(
+            "[bold]Choose mode[/bold]",
+            choices=["1", "2"],
+            default="2"
+        )
+
+        mode = "local" if choice == "1" else "remote"
+        console.print()
+        logger.info(f"User selected {mode} mode")
+
+    actual_mode = mode
 
     # Validate Azure credentials only for remote mode
     if actual_mode == "remote":
