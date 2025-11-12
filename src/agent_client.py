@@ -145,8 +145,11 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
             # Agent Framework handles all tool calling automatically
             response = await self.agent.run(user_message, thread=thread)
 
-            logger.debug(f"Assistant response: {response[:100]}...")
-            return response
+            # Extract text from AgentRunResponse
+            response_text = response.text if response.text else ""
+
+            logger.debug(f"Assistant response: {response_text[:100]}...")
+            return response_text
 
         except Exception as e:
             error_msg = f"Error communicating with Azure AI: {e}"
