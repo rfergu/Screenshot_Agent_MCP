@@ -15,7 +15,7 @@ setup(
     install_requires=requirements,
     entry_points={
         "console_scripts": [
-            "screenshot-organizer=__main__:main"
+            "screenshot-organizer=cli_interface:main"
         ]
     }
 )
