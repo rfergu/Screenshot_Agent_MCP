@@ -1,11 +1,15 @@
 <!--
 Sync Impact Report
 
-- Version change: 1.0.0 -> 2.0.0
-- Modified principles: Article I completely revised to reflect production AI development reality
-- Added sections: none
-- Removed sections: "Local-First Processing" principle (discovered to be incompatible with small model limitations)
-- Amended: 2025-11-12 - Major revision: Local mode changed from "full local processing" to "testing only" after discovering Phi-4-mini function calling unreliability
+- Version change: 2.0.0 -> 2.1.0
+- Modified principles: None
+- Added sections: Article X: Required Technology Stack (explicit stack constraints for rebuild-from-spec)
+- Removed sections: None
+- Amended: 2025-11-12 - Minor revision: Added Article X to explicitly state non-negotiable technology stack (Python 3.11+, Microsoft Agent Framework, MCP) for SpecKit rebuild-from-spec capability
+- Previous amendments:
+	- 2025-11-12 (v2.0.0): Major revision - Local mode changed from "full local processing" to "testing only"
+	- 2025-11-11 (v1.0.0): Initial ratification
+
 - Templates reviewed:
 	- .specify/templates/plan-template.md ✅ reviewed (Constitution Check present)
 	- .specify/templates/spec-template.md ✅ reviewed
@@ -22,7 +26,7 @@ Sync Impact Report
 
 # Project Constitution
 
-Constitution Version: 2.0.0
+Constitution Version: 2.1.0
 
 Ratification Date: 2025-11-11
 
@@ -83,7 +87,62 @@ Last Amended: 2025-11-12
 3. **Update Path**: Clear documentation for updating dependencies and models
 4. **Backward Compatibility**: Maintain compatibility with existing organized file structures
 
-## Article X: Governance
+## Article X: Required Technology Stack
+
+These are non-negotiable technology requirements. Deviations MUST NOT be made without amending this constitution.
+
+### 🔴 CRITICAL (MUST Use - No Exceptions)
+
+1. **Programming Language**: Python 3.11 or higher
+   - Rationale: Type hints, performance improvements, async features
+   - Exception process: N/A - This is foundational
+
+2. **AI Agent Framework**: Microsoft Agent Framework (agent-framework package)
+   - Rationale: Demonstrates Agent Framework WITH MCP Client Integration architecture
+   - Exception process: Requires constitutional amendment (this is the project's core purpose)
+
+3. **Tool Protocol**: Model Context Protocol (MCP) via mcp package
+   - Rationale: Standardized tool interface, demonstrates MCP integration pattern
+   - Exception process: Requires constitutional amendment (this is the project's core purpose)
+
+4. **Remote AI Provider**: Azure OpenAI or Azure AI Foundry
+   - Rationale: Production-grade reliability for tool calling and GPT-4 capabilities
+   - Exception process: May substitute equivalent Azure service with same API contract
+
+### 🟡 IMPORTANT (SHOULD Use - Exceptions Require Justification)
+
+5. **OCR Engine**: Tesseract OCR
+   - Rationale: Fast, free, widely available
+   - Exception: May substitute if alternative provides <50ms processing for text screenshots
+
+6. **Local Testing Model**: Azure AI Foundry CLI with Phi-4-mini
+   - Rationale: Free local testing, zero API costs
+   - Exception: May substitute equivalent local model service
+
+7. **Vision Fallback**: Phi-3 Vision MLX (macOS only)
+   - Rationale: Privacy option for image analysis
+   - Exception: Platform-specific, may be unavailable on non-macOS
+
+### 🟢 RECOMMENDED (MAY Substitute)
+
+8. **Configuration Format**: YAML via config files
+9. **CLI Framework**: Click
+10. **Terminal Output**: Rich library for formatting
+
+### Technology Constraints
+
+- **No JavaScript/TypeScript**: This is a Python demonstration project
+- **No Alternative AI Frameworks**: LangChain, LlamaIndex, etc. would obscure Agent Framework patterns
+- **No Custom MCP Protocol**: Must use official MCP SDK, not reimplementations
+
+### Dependency Versions
+
+Critical dependencies must be pinned in requirements.txt:
+- `agent-framework>=1.0.0b251111`
+- `mcp>=0.9.0`
+- Python version specified in `.python-version` or documentation
+
+## Article XI: Governance
 
 1. **Amendment Procedure**: Amendments to this constitution MUST be proposed in a pull request that links to the reasoned change and any affected specs/templates. Amendments are accepted when at least two maintainers approve the PR. Emergency fixes (security/privacy) MAY be merged with a single maintainer approval but MUST be followed by a post-merge review.
 
