@@ -20,15 +20,14 @@ logger = get_logger(__name__)
 class CLIInterface:
     """Interactive command-line interface for screenshot organization."""
 
-    def __init__(self, api_key: Optional[str] = None, session_id: Optional[str] = None):
+    def __init__(self, session_id: Optional[str] = None):
         """Initialize CLI interface.
 
         Args:
-            api_key: OpenAI API key. If None, reads from env.
             session_id: Optional session ID to resume. If None, creates new session.
         """
         self.console = Console()
-        self.chat_client = ChatClient(api_key=api_key)
+        self.chat_client = ChatClient()
         self.session_manager = SessionManager()
         self.session_id = session_id or self.session_manager.create_session()
         
@@ -201,11 +200,6 @@ code, errors, documentation, design, communication, memes, other
 
 @click.command()
 @click.option(
-    "--api-key",
-    envvar="OPENAI_API_KEY",
-    help="OpenAI API key (or set OPENAI_API_KEY env var)"
-)
-@click.option(
     "--session",
     help="Session ID to resume previous conversation"
 )
@@ -219,11 +213,18 @@ code, errors, documentation, design, communication, memes, other
     is_flag=True,
     help="Enable debug logging"
 )
-def main(api_key: Optional[str], session: Optional[str], config: Optional[Path], debug: bool):
+def main(session: Optional[str], config: Optional[Path], debug: bool):
     """Interactive AI assistant for organizing screenshots.
 
     The assistant uses local AI models (OCR + Vision) to analyze screenshots
-    and GPT-4 to orchestrate the organization process.
+    and Azure AI Foundry to orchestrate the organization process.
+
+    Required environment variables:
+      AZURE_AI_CHAT_ENDPOINT - Your Azure AI Foundry project endpoint
+      AZURE_AI_CHAT_KEY - Your API key (or use 'az login' for CLI auth)
+      AZURE_AI_MODEL_DEPLOYMENT - Your deployed model name (e.g., gpt-4)
+
+    Get credentials from: https://ai.azure.com
     """
     # Setup logging
     log_level = "DEBUG" if debug else "INFO"
@@ -236,16 +237,25 @@ def main(api_key: Optional[str], session: Optional[str], config: Optional[Path],
     else:
         load_config()
 
-    # Validate API key
-    if not api_key:
+    # Validate Azure credentials
+    import os
+    endpoint = os.environ.get("AZURE_AI_CHAT_ENDPOINT")
+    if not endpoint:
         console = Console()
-        console.print("[red]Error: OpenAI API key not provided.[/red]")
-        console.print("Set OPENAI_API_KEY environment variable or use --api-key option.")
+        console.print("[red]Error: Azure AI Foundry credentials not configured.[/red]")
+        console.print()
+        console.print("Required environment variables:")
+        console.print("  • AZURE_AI_CHAT_ENDPOINT - Your project endpoint")
+        console.print("  • AZURE_AI_CHAT_KEY - Your API key (or use 'az login')")
+        console.print("  • AZURE_AI_MODEL_DEPLOYMENT - Your model name (e.g., gpt-4)")
+        console.print()
+        console.print("Get credentials from: [cyan]https://ai.azure.com[/cyan]")
+        console.print("See .env.example for setup instructions")
         sys.exit(1)
 
     # Create and run CLI
     try:
-        cli = CLIInterface(api_key=api_key, session_id=session)
+        cli = CLIInterface(session_id=session)
         cli.chat_loop()
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)

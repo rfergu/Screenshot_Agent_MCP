@@ -75,20 +75,19 @@
 }
 ```
 
-### GPT-4 Integration Strategy
+### Azure AI Foundry Integration Strategy
 
-#### API Selection: OpenAI vs Azure OpenAI
-- **OpenAI Direct:**
-  - Simpler setup
-  - Pay-per-use pricing
-  - Latest model versions immediately
-  
-- **Azure OpenAI:**
-  - Better for enterprise
+#### API Selection: Azure AI Foundry
+- **Azure AI Foundry Benefits:**
+  - Enterprise-ready with built-in security
+  - Multiple authentication options (API key, Azure CLI, managed identity)
+  - Access to latest GPT-4, GPT-4o, and other models
   - Committed throughput options
+  - Better regional availability and compliance
   - Data residency control
-  
-**Decision:** Support both via configuration
+  - Pay-per-use or reserved capacity pricing
+
+**Decision:** Use Azure AI Foundry for enterprise-grade orchestration
 
 #### Context Management
 - **Max Context:** 8,192 tokens (leaving buffer)
@@ -250,12 +249,16 @@ def validate_image_path(path):
 | Package | Version | Python | Notes |
 |---------|---------|--------|-------|
 | pytesseract | 0.3.10 | >=3.8 | Stable |
-| Pillow | 10.2.0 | >=3.8 | Latest |
-| phi-3-vision-mlx | 0.1.0 | >=3.10 | M1/M2 Mac only |
-| openai | 1.12.0 | >=3.8 | Latest |
-| mcp | 0.1.0 | >=3.9 | Beta |
-| rich | 13.7.0 | >=3.8 | Terminal UI |
-| pydantic | 2.5.0 | >=3.8 | Validation |
+| Pillow | >=10.2.0 | >=3.8 | Latest |
+| phi-3-vision-mlx | >=0.0.3rc1 | >=3.10 | M1/M2 Mac only |
+| azure-ai-inference | >=1.0.0b9 | >=3.8 | Beta |
+| azure-identity | >=1.15.0 | >=3.8 | Latest |
+| mcp | >=1.0.0 | >=3.9 | Stable |
+| rich | >=13.7.0 | >=3.8 | Terminal UI |
+| pydantic | >=2.7.2 | >=3.8 | Validation |
+| PyYAML | >=6.0 | >=3.8 | Config |
+| click | >=8.1.7 | >=3.8 | CLI |
+| pytest | >=7.4.0 | >=3.8 | Testing |
 
 ### Model Download Strategy
 
@@ -278,7 +281,8 @@ The selected technology stack provides:
 1. **Fast local processing** via Tesseract OCR
 2. **Privacy preservation** with local Phi-3 Vision
 3. **Clean architecture** via MCP protocol
-4. **Natural interaction** through GPT-4 orchestration
+4. **Natural interaction** through Azure AI Foundry orchestration
 5. **Robust error handling** with graceful degradation
+6. **Enterprise-grade security** with Azure authentication options
 
 This combination achieves the design goals of efficiency, privacy, and user-friendliness while maintaining extensibility for future enhancements.

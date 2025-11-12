@@ -1,7 +1,7 @@
 # Screenshot Organizer - Technical Implementation Plan
 
 ## Overview
-This plan details the technical implementation of the Screenshot Organizer with Local AI, following a modular architecture with MCP protocol integration, local-first processing, and GPT-4 orchestration.
+This plan details the technical implementation of the Screenshot Organizer with Local AI, following a modular architecture with MCP protocol integration, local-first processing, and Azure AI Foundry orchestration.
 
 ## Architecture Design
 
@@ -14,7 +14,7 @@ This plan details the technical implementation of the Screenshot Organizer with 
 ┌────────────────────▼─────────────────────────────────┐
 │              Chat Client (chat_client.py)            │
 │  - Natural language interface                        │
-│  - GPT-4 orchestration                              │
+│  - Azure AI Foundry orchestration                   │
 │  - MCP protocol client                              │
 └────────────────────┬─────────────────────────────────┘
                      │ MCP Protocol
@@ -39,26 +39,37 @@ This plan details the technical implementation of the Screenshot Organizer with 
 
 ### Data Flow
 1. User input → Chat Client
-2. Chat Client → GPT-4 API (intent analysis)
-3. GPT-4 → MCP tool selection
+2. Chat Client → Azure AI Foundry API (intent analysis)
+3. Azure AI Foundry → MCP tool selection
 4. MCP Server executes tool
 5. Tool processes image (OCR → Vision if needed)
-6. Results returned through MCP → GPT-4 → User
+6. Results returned through MCP → Azure AI Foundry → User
 
 ## Technology Stack
 
 ### Core Dependencies
 ```python
 # requirements.txt
-openai==1.12.0          # GPT-4 integration
-mcp==0.1.0              # Model Context Protocol
-pytesseract==0.3.10     # OCR processing
-pillow==10.2.0          # Image handling
-phi-3-vision-mlx==0.1.0 # Local vision model
-python-dotenv==1.0.0    # Environment management
-rich==13.7.0            # Terminal UI formatting
-click==8.1.7            # CLI framework
-pydantic==2.5.0         # Data validation
+azure-ai-inference>=1.0.0b9  # Azure AI Foundry SDK
+azure-identity>=1.15.0        # Azure authentication
+mcp>=1.0.0                    # Model Context Protocol
+pytesseract==0.3.10           # OCR processing
+Pillow>=10.2.0                # Image handling
+phi-3-vision-mlx>=0.0.3rc1    # Local vision model
+python-dotenv>=1.0.0          # Environment management
+rich>=13.7.0                  # Terminal UI formatting
+click>=8.1.7                  # CLI framework
+pydantic>=2.7.2               # Data validation
+PyYAML>=6.0                   # Configuration parsing
+pytest>=7.4.0                 # Testing framework
+```
+
+### Azure AI Foundry Configuration
+```bash
+# Environment variables
+AZURE_AI_CHAT_ENDPOINT      # Your project endpoint URL
+AZURE_AI_CHAT_KEY           # API key (or use az login)
+AZURE_AI_MODEL_DEPLOYMENT   # Model deployment name (e.g., gpt-4, gpt-4o)
 ```
 
 ### Directory Structure
@@ -67,7 +78,7 @@ screenshot-organizer/
 ├── src/
 │   ├── __init__.py
 │   ├── screenshot_mcp_server.py   # MCP server implementation
-│   ├── chat_client.py              # GPT-4 orchestrated interface
+│   ├── chat_client.py              # Azure AI Foundry orchestrated interface
 │   ├── processors/
 │   │   ├── __init__.py
 │   │   ├── ocr_processor.py       # Tesseract OCR wrapper
@@ -214,18 +225,35 @@ class KeywordClassifier:
 ### 5. Chat Client (`chat_client.py`)
 
 ```python
-import openai
-from mcp import Client
-import asyncio
+import os
+from azure.ai.inference import ChatCompletionsClient
+from azure.core.credentials import AzureKeyCredential
+from azure.identity import DefaultAzureCredential
 from rich.console import Console
 from rich.prompt import Prompt
 
 class ChatClient:
-    """GPT-4 orchestrated chat interface"""
-    
-    def __init__(self, api_key: str, mcp_server_url: str):
-        self.openai_client = openai.Client(api_key=api_key)
-        self.mcp_client = Client(mcp_server_url)
+    """Azure AI Foundry orchestrated chat interface"""
+
+    def __init__(self, endpoint: str = None, credential: str = None):
+        # Get endpoint
+        endpoint = endpoint or os.environ.get("AZURE_AI_CHAT_ENDPOINT")
+        api_key = credential or os.environ.get("AZURE_AI_CHAT_KEY")
+
+        # Initialize Azure client with API key or CLI auth
+        if api_key:
+            self.client = ChatCompletionsClient(
+                endpoint=endpoint,
+                credential=AzureKeyCredential(api_key)
+            )
+        else:
+            # Fall back to Azure CLI authentication
+            self.client = ChatCompletionsClient(
+                endpoint=endpoint,
+                credential=DefaultAzureCredential()
+            )
+
+        self.model = os.environ.get("AZURE_AI_MODEL_DEPLOYMENT", "gpt-4")
         self.console = Console()
         self.system_prompt = """
         You are a helpful assistant that organizes screenshots.
@@ -236,8 +264,8 @@ class ChatClient:
         - batch_process(folder)
         - organize_file(source, category, new_name)
         """
-        
-    async def chat_loop(self):
+
+    def chat_loop(self):
         """Main chat interaction loop"""
 ```
 
@@ -269,7 +297,7 @@ models:
     temperature: 0.3
   
 api:
-  openai_model: "gpt-4-turbo-preview"
+  azure_model_deployment: "gpt-4"  # Or gpt-4o, gpt-4-turbo, etc.
   max_context_length: 8000
 ```
 
@@ -299,7 +327,7 @@ api:
 - End-to-end screenshot processing
 - Batch processing workflow
 - Error handling scenarios
-- GPT-4 orchestration
+- Azure AI Foundry orchestration
 
 #### Performance Tests
 - OCR processing time (<50ms target)
@@ -317,8 +345,10 @@ api:
 
 #### Environment Variables
 ```bash
-# .env.example
-OPENAI_API_KEY=sk-...
+# .env.example or ~/.zshrc (recommended)
+AZURE_AI_CHAT_ENDPOINT=https://your-project.services.ai.azure.com/api/projects/your-id
+AZURE_AI_CHAT_KEY=your-api-key  # Or use 'az login' for CLI auth
+AZURE_AI_MODEL_DEPLOYMENT=gpt-4
 MCP_SERVER_PORT=8080
 TESSERACT_PATH=/usr/local/bin/tesseract
 PHI3_MODEL_PATH=~/.cache/phi3_vision
@@ -360,5 +390,5 @@ logging.basicConfig(
 - **Vision Processing**: <2s for visual content
 - **Classification Accuracy**: >90% correct categorization
 - **Batch Performance**: Linear scaling up to 1000 files
-- **User Satisfaction**: Natural conversation flow with GPT-4
+- **User Satisfaction**: Natural conversation flow with Azure AI Foundry models
 - **Cost Savings**: $0.00 per image (all local processing)

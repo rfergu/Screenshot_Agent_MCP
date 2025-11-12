@@ -35,18 +35,38 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 4. Set Up Environment Variables
+### 4. Set Up Azure AI Foundry Credentials
+
+**Option A: Environment Variables (Recommended)**
+
+Add to your shell profile (`~/.zshrc` or `~/.bashrc`):
 ```bash
-cp .env.example .env
-# Edit .env and add your OpenAI API key
+# Azure AI Foundry Configuration
+export AZURE_AI_CHAT_ENDPOINT="https://your-project.services.ai.azure.com/api/projects/your-id"
+export AZURE_AI_CHAT_KEY="your-api-key"
+export AZURE_AI_MODEL_DEPLOYMENT="gpt-4"
+
+# Optional settings
+export MCP_SERVER_PORT=8080
+export LOG_LEVEL=INFO
 ```
 
-Required environment variables:
+Then reload: `source ~/.zshrc`
+
+**Option B: .env File**
 ```bash
-OPENAI_API_KEY=sk-...  # Your OpenAI API key
-MCP_SERVER_PORT=8080   # Port for MCP server (default: 8080)
-LOG_LEVEL=INFO         # Logging level (DEBUG, INFO, WARNING, ERROR)
+cp .env.example .env
+# Edit .env and add your Azure credentials
 ```
+
+**Getting Azure Credentials:**
+1. Go to https://ai.azure.com
+2. Sign in and create or select a project
+3. Navigate to Settings → Project connection string (for endpoint)
+4. Navigate to Keys and Endpoint (for API key)
+5. Note your model deployment name from Deployments section
+
+See `.env.example` for detailed setup instructions.
 
 ### 5. Download Phi-3 Vision Model (Optional)
 The model will auto-download on first use (~8GB), but you can pre-download:
@@ -169,11 +189,21 @@ which tesseract  # Should show path
 curl -L [model-url] -o ~/.cache/phi3_vision/model.bin
 ```
 
-### Issue: "OpenAI API error"
-**Solution:** Verify API key and check rate limits
+### Issue: "Azure AI Foundry credentials not configured"
+**Solution:** Verify credentials are set correctly
 ```bash
-# Test API key
-python -c "import openai; openai.api_key='your-key'; print(openai.Model.list())"
+# Check environment variables
+echo $AZURE_AI_CHAT_ENDPOINT
+echo $AZURE_AI_MODEL_DEPLOYMENT
+
+# Test Azure connection
+python -c "from azure.ai.inference import ChatCompletionsClient; from azure.core.credentials import AzureKeyCredential; import os; client = ChatCompletionsClient(endpoint=os.environ['AZURE_AI_CHAT_ENDPOINT'], credential=AzureKeyCredential(os.environ['AZURE_AI_CHAT_KEY'])); print('✅ Connection successful!')"
+```
+
+**Alternative:** Use Azure CLI authentication
+```bash
+az login
+# Then comment out AZURE_AI_CHAT_KEY in your environment
 ```
 
 ### Issue: "MCP connection failed"

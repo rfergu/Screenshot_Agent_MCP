@@ -4,7 +4,7 @@
 Screenshot Organizer with Local AI Processing
 
 ## Feature Description
-A terminal-based tool that intelligently organizes screenshots using local AI models (OCR and Phi-3 Vision), with GPT-4 orchestrating the conversation through MCP protocol. The system prioritizes local processing to maintain privacy and minimize costs.
+A terminal-based tool that intelligently organizes screenshots using local AI models (OCR and Phi-3 Vision), with Azure AI Foundry orchestrating the conversation through MCP protocol. The system prioritizes local processing to maintain privacy and minimize costs.
 
 ## User Stories
 
@@ -36,12 +36,12 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 - Creates organized folder structure if it doesn't exist
 
 ### US-003: Interactive Chat Interface
-**As a** user  
-**I want to** interact with the tool through natural language  
-**So that** I can easily organize screenshots without memorizing commands  
+**As a** user
+**I want to** interact with the tool through natural language
+**So that** I can easily organize screenshots without memorizing commands
 
 **Acceptance Criteria:**
-- GPT-4 understands natural language requests
+- Azure AI Foundry models understand natural language requests
 - Provides helpful suggestions and clarifications
 - Explains what the tool is doing at each step
 - Offers to process individual files or batches
@@ -111,11 +111,12 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 - Generate descriptive filenames (no spaces, filesystem-safe)
 - Handle duplicate filenames gracefully
 
-### FR-006: GPT-4 Integration
-- Use GPT-4 for natural language understanding
+### FR-006: Azure AI Foundry Integration
+- Use Azure AI Foundry models (GPT-4, GPT-4o, etc.) for natural language understanding
 - Orchestrate MCP tool calls based on user intent
 - Provide conversational responses
 - Maintain session context
+- Support both API key and Azure CLI authentication
 
 ### FR-007: Error Handling
 - Gracefully handle OCR failures
@@ -139,7 +140,7 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 ### NFR-002: Privacy
 - No image data sent to external services
 - All vision processing done locally
-- Only text metadata sent to GPT-4
+- Only text metadata sent to Azure AI Foundry for orchestration
 
 ### NFR-003: Usability
 - Clear command-line interface

@@ -135,15 +135,16 @@ This document breaks down the implementation into executable tasks organized by 
 
 ## Phase 5: Chat Interface
 
-### Task 5.1: GPT-4 Integration
+### Task 5.1: Azure AI Foundry Integration
 **File:** `src/chat_client.py`
-**Description:** Implement GPT-4 orchestration
+**Description:** Implement Azure AI Foundry orchestration
 **Dependencies:** Task 4.1
 **Actions:**
-1. Set up OpenAI client
-2. Create system prompt
-3. Implement conversation management
-4. Add MCP tool calling logic
+1. Set up Azure AI Inference client
+2. Implement both API key and Azure CLI authentication
+3. Create system prompt with tool definitions
+4. Implement conversation management with Azure message types
+5. Add MCP tool calling logic compatible with Azure format
 **Tests:** `tests/test_chat_client.py`
 
 ### Task 5.2: Interactive CLI
@@ -268,7 +269,7 @@ Phase 7 (Sequential): Task 7.1 → Task 7.2 → Task 7.3
 - Proper error handling for invalid inputs
 
 ### Checkpoint 3: After Phase 5
-- GPT-4 successfully calls MCP tools
+- Azure AI Foundry models successfully call MCP tools
 - Chat interface responds to natural language
 - Session context maintained between messages
 
@@ -289,6 +290,6 @@ Phase 7 (Sequential): Task 7.1 → Task 7.2 → Task 7.3
 
 ## Critical Path
 The critical path for MVP functionality:
-1. Task 1.2 (Config) → Task 2.1 (OCR) → Task 4.1 (MCP Server) → Task 5.1 (GPT-4) → Task 5.2 (CLI)
+1. Task 1.2 (Config) → Task 2.1 (OCR) → Task 4.1 (MCP Server) → Task 5.1 (Azure AI Foundry) → Task 5.2 (CLI)
 
 This allows basic single-file processing with OCR and chat interface.

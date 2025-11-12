@@ -186,11 +186,13 @@ organization:
     path: str             # Archive directory
     
 api:
-  openai:
-    api_key: str          # OpenAI API key
-    model: str            # GPT model to use
-    max_tokens: int       # Maximum response tokens
-    temperature: float    # Response temperature
+  azure:
+    endpoint: str              # Azure AI Foundry project endpoint
+    api_key: Optional[str]     # API key (or use Azure CLI via 'az login')
+    model_deployment: str      # Model deployment name (gpt-4, gpt-4o, gpt-4-turbo)
+    max_tokens: int            # Maximum response tokens
+    max_context_length: int    # Maximum conversation context (default: 8000)
+    temperature: float         # Response temperature (optional)
     
   mcp:
     host: str            # MCP server host

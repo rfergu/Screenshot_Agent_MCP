@@ -31,8 +31,8 @@ from utils.model_manager import ModelManager
 def cli(ctx, config, debug):
     """Screenshot Organizer - AI-powered screenshot organization.
 
-    Use local AI models (OCR + Vision) with GPT-4 orchestration to automatically
-    categorize and organize your screenshots.
+    Use local AI models (OCR + Vision) with Azure AI Foundry orchestration to
+    automatically categorize and organize your screenshots.
     """
     # Ensure context object exists
     ctx.ensure_object(dict)
@@ -53,32 +53,48 @@ def cli(ctx, config, debug):
 
 @cli.command()
 @click.option(
-    "--api-key",
-    envvar="OPENAI_API_KEY",
-    required=True,
-    help="OpenAI API key (or set OPENAI_API_KEY env var)"
-)
-@click.option(
     "--session",
     help="Session ID to resume previous conversation"
 )
 @click.pass_context
-def chat(ctx, api_key, session):
+def chat(ctx, session):
     """Start interactive chat interface.
 
     Launch the conversational AI assistant for organizing screenshots.
+
+    Required environment variables:
+      AZURE_AI_CHAT_ENDPOINT - Your Azure AI Foundry project endpoint
+      AZURE_AI_CHAT_KEY - Your API key (or use 'az login')
+      AZURE_AI_MODEL_DEPLOYMENT - Your model deployment name
+
+    Get credentials from: https://ai.azure.com
     """
+    import os
     from cli_interface import CLIInterface
 
+    console = Console()
+
+    # Check for Azure credentials
+    endpoint = os.environ.get("AZURE_AI_CHAT_ENDPOINT")
+    if not endpoint:
+        console.print("[red]Error: Azure AI Foundry credentials not configured.[/red]")
+        console.print()
+        console.print("Required environment variables:")
+        console.print("  • AZURE_AI_CHAT_ENDPOINT")
+        console.print("  • AZURE_AI_CHAT_KEY (or use 'az login')")
+        console.print("  • AZURE_AI_MODEL_DEPLOYMENT")
+        console.print()
+        console.print("Get credentials from: [cyan]https://ai.azure.com[/cyan]")
+        console.print("See .env.example for setup instructions")
+        sys.exit(1)
+
     try:
-        cli_interface = CLIInterface(api_key=api_key, session_id=session)
+        cli_interface = CLIInterface(session_id=session)
         cli_interface.chat_loop()
     except KeyboardInterrupt:
-        console = Console()
         console.print("\n[cyan]Interrupted. Goodbye![/cyan]")
         sys.exit(0)
     except Exception as e:
-        console = Console()
         console.print(f"[red]Error: {e}[/red]")
         if ctx.obj.get("debug"):
             raise
@@ -110,7 +126,7 @@ def server(ctx):
 
 
 @cli.command()
-@click.argument("path", type=click.Path(exists=True, path_type=Path))
+@click.argument("path", type=click.Path(exists=True, resolve_path=True, path_type=Path))
 @click.option(
     "--force-vision",
     is_flag=True,
@@ -166,7 +182,7 @@ def analyze(ctx, path, force_vision):
 
 
 @cli.command()
-@click.argument("folder", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.argument("folder", type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path))
 @click.option(
     "--recursive",
     is_flag=True,
