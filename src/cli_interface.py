@@ -149,6 +149,25 @@ code, errors, documentation, design, communication, memes, other
 
         self.show_welcome()
 
+        # Trigger proactive introduction (remote mode only)
+        if self.agent_client.mode == "remote":
+            self.console.print()
+            with self.console.status("[cyan]Agent initializing...[/cyan]", spinner="dots"):
+                # Send simple trigger to start conversation
+                intro_response = await self.agent_client.chat("Hello", thread=self.thread)
+
+            # Display agent's introduction
+            if should_show_model_name():
+                mode_emoji = "☁️"
+                mode_color = "cyan"
+                model_name = self.agent_client.model_name
+                self.console.print(f"[bold {mode_color}]Assistant {mode_emoji} {model_name}[/bold {mode_color}]\n")
+            else:
+                self.console.print(f"[bold cyan]Assistant[/bold cyan]\n")
+
+            self.console.print(intro_response)
+            self.console.print()
+
         try:
             while True:
                 # Get user input
