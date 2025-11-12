@@ -4,11 +4,95 @@
 Screenshot Organizer with Local AI Processing
 
 ## Feature Description
-A terminal-based tool that intelligently organizes screenshots using AI models (OCR and Azure GPT-4o Vision) with Microsoft Agent Framework orchestration. Demonstrates **Agent Framework WITH MCP Client Integration** - a modern architecture where the Agent Framework contains an embedded MCP client that connects to an MCP server for all file operations. Supports dual-mode operation: local testing mode (Phi-4-mini for basic chat, no tools) or remote production mode (Azure OpenAI GPT-4o with full MCP tool support including vision). Demonstrates the reality of production AI agent development: small local models for quick testing, large remote models for reliable production capabilities with standardized tool integration via Model Context Protocol (MCP).
+A conversational AI agent that intelligently organizes screenshots through natural language interaction. Built with Microsoft Agent Framework and MCP (Model Context Protocol), the agent proactively guides users through discovery, analysis, and organization phases with context-aware intelligence. The agent adapts its behavior based on collection size, extracts meaningful content from screenshots, suggests smart categorization, offers multiple naming strategies, and provides real-time progress with intelligent summaries. Demonstrates **Agent Framework WITH MCP Client Integration** in an engaging demo that shows how modern AI agents combine conversational intelligence with structured tool execution. Supports dual-mode operation: local testing mode (Phi-4-mini for basic chat, no tools) or remote production mode (Azure OpenAI GPT-4o with full capabilities).
 
 ## User Stories
 
-### US-001: Analyze Single Screenshot
+### US-001: Proactive Agent Introduction and Discovery
+**As a** user starting the agent
+**I want** the agent to introduce itself and proactively guide me
+**So that** I understand what it can do and how to begin
+
+**Acceptance Criteria:**
+- Agent introduces itself on startup with clear capabilities description
+- Proactively asks where user keeps screenshots
+- Uses MCP tools to list files in provided directory
+- Reports file count with contextual description (small/moderate/large collection)
+- Suggests appropriate approach based on collection size:
+  - Small (1-10): Offer manual review option
+  - Moderate (11-30): Suggest preview sampling
+  - Large (30+): Recommend direct batch processing
+- Maintains conversational, helpful tone throughout
+
+### US-002: Intelligent Content Preview and Pattern Recognition
+**As a** user with a moderate screenshot collection
+**I want** the agent to preview samples and identify patterns
+**So that** I understand what types of content I have before organizing
+
+**Acceptance Criteria:**
+- Agent samples 3-4 files with varied naming patterns
+- Analyzes each using Azure GPT-4o Vision via MCP tools
+- Identifies specific content types (invoices, errors, designs, etc.)
+- Recognizes patterns across samples
+- Suggests relevant categories based on actual content found
+- Extracts meaningful details (dates, amounts, error types, company names)
+- Asks user if suggested categories make sense
+- Allows user to add or modify categories
+- Shows [MCP Tool Call] annotations during analysis
+
+### US-003: Flexible Naming Strategy Selection
+**As a** user organizing screenshots
+**I want** to choose how files should be named
+**So that** they're organized in a way that works for my workflow
+
+**Acceptance Criteria:**
+- Agent offers three naming strategies:
+  1. **Smart Naming**: Extracts meaningful content (e.g., "invoice_acme_corp_2024_11_1234usd.png")
+  2. **Date-Based**: Uses dates and sequence (e.g., "2024-11-12_invoice_1.png")
+  3. **Keep Originals**: Maintains original names, only organizes into folders
+- Explains tradeoffs of each approach
+- Confirms user's choice before proceeding
+- Remembers choice throughout session
+
+### US-004: Real-Time Progress with Contextual Updates
+**As a** user during file organization
+**I want** to see what's happening in real-time
+**So that** I know the agent is working and understand its progress
+
+**Acceptance Criteria:**
+- Shows progress for each file: `original_name → identified_content → new_location`
+- Displays MCP tool calls naturally: `[MCP Tool Call: move_screenshot(...)]`
+- Provides progress summaries every 5-6 files
+- Adapts verbosity based on collection size (less detail for large batches)
+- Shows specific details extracted from content (amounts, dates, error types)
+- Indicates when files are being created, analyzed, or moved
+
+### US-005: Intelligent Summary with Content Understanding
+**As a** user after organization completes
+**I want** an intelligent summary that shows real understanding
+**So that** I know the agent truly analyzed my content, not just moved files
+
+**Acceptance Criteria:**
+- Provides specific counts by category
+- Shows extracted insights (e.g., "6 invoices totaling $8,422", "5 error screenshots: 3 Azure, 2 Python")
+- Demonstrates understanding of actual content
+- Asks if user wants help finding anything specific
+- Maintains memory of what was organized
+
+### US-006: Contextual Follow-Up Questions
+**As a** user after organization
+**I want** to ask follow-up questions about the content
+**So that** I can find or understand specific files
+
+**Acceptance Criteria:**
+- Agent recalls specific files and their content
+- Uses MCP tools to re-read files if needed for detailed questions
+- Provides contextual analysis (e.g., "Those Azure errors were about connection timeouts to...")
+- References earlier analysis without re-explaining everything
+- Can locate specific files by description or content
+- Maintains conversational context across questions
+
+### US-007: Analyze Single Screenshot
 **As a** user with many unorganized screenshots  
 **I want to** analyze a single screenshot file  
 **So that** I can understand its content and get it properly categorized  
@@ -21,7 +105,7 @@ A terminal-based tool that intelligently organizes screenshots using AI models (
 - Reports processing method used and time taken
 - Uses Azure GPT-4o Vision for reliable image understanding
 
-### US-002: Batch Process Screenshots
+### US-008: Batch Process Screenshots
 **As a** user with a folder full of screenshots  
 **I want to** process all screenshots in a folder at once  
 **So that** I can organize my entire screenshot collection efficiently  
@@ -34,7 +118,7 @@ A terminal-based tool that intelligently organizes screenshots using AI models (
 - Handles errors gracefully without stopping batch
 - Creates organized folder structure if it doesn't exist
 
-### US-003: Interactive Chat Interface
+### US-009: Interactive Chat Interface
 **As a** user
 **I want to** interact with the tool through natural language
 **So that** I can easily organize screenshots without memorizing commands
@@ -52,7 +136,7 @@ A terminal-based tool that intelligently organizes screenshots using AI models (
 - Displays current mode indicator to prevent confusion
 - Local mode explains its limitations and suggests remote mode for actual work
 
-### US-004: Organize and Rename Files
+### US-010: Organize and Rename Files
 **As a** user  
 **I want to** have my screenshots automatically moved and renamed  
 **So that** I can easily find them later  
@@ -65,7 +149,7 @@ A terminal-based tool that intelligently organizes screenshots using AI models (
 - Preserves original file metadata
 - Optionally keeps originals in an archive folder
 
-### US-005: View Processing Metrics
+### US-011: View Processing Metrics
 **As a** user  
 **I want to** see performance metrics for processing  
 **So that** I understand how the tool is performing  
@@ -177,7 +261,68 @@ A terminal-based tool that intelligently organizes screenshots using AI models (
   - Facts and data (not decisions)
   - Standardized tool interface via MCP protocol
 
-### FR-010: Dual-Mode Support - Testing vs Production Architecture
+### FR-010: Conversational Agent Intelligence and Proactive Guidance
+- **Proactive Introduction**: Agent introduces itself on startup with clear capability description
+- **Guided Discovery**: Automatically asks for screenshot directory location
+- **Adaptive Behavior**: Adjusts strategy based on file count (small/moderate/large)
+- **Context-Aware Suggestions**: Recommends preview sampling, manual review, or batch processing based on collection size
+- **Natural Language Flow**: Maintains conversational tone throughout all interactions
+- **User Confirmation**: Always confirms plans before executing operations
+
+### FR-011: Intelligent Content Analysis and Pattern Recognition
+- **Strategic Sampling**: For moderate collections (11-30 files), sample 3-4 files with varied naming patterns
+- **Visual Analysis**: Use Azure GPT-4o Vision to analyze sampled screenshots via MCP tools
+- **Content Extraction**: Extract specific details:
+  - Invoice: company name, amount, date
+  - Error: error type, service name, message excerpt
+  - Design: design type, tool used
+  - Documentation: topic, format
+- **Pattern Recognition**: Identify common content types across samples
+- **Category Suggestions**: Suggest categories based on actual content found (not generic defaults)
+- **User Validation**: Ask user if suggested categories make sense and allow modifications
+- **MCP Tool Visibility**: Show [MCP Tool Call] annotations during analysis
+
+### FR-012: Flexible Naming Strategies
+- **Three Strategy Options**:
+  1. **Smart Naming**: Extract meaningful content from screenshots
+     - Example: `invoice_acme_corp_2024_11_1234usd.png`
+     - Example: `error_azure_connection_timeout.png`
+     - Example: `design_mobile_checkout_flow.png`
+  2. **Date-Based Naming**: Use date + category + sequence
+     - Example: `2024-11-12_invoice_1.png`
+     - Example: `2024-11-12_error_1.png`
+  3. **Keep Originals**: Maintain original names, organize into category folders only
+- **Strategy Explanation**: Explain tradeoffs of each approach
+- **User Choice**: Allow user to select preferred strategy
+- **Persistent Memory**: Remember chosen strategy throughout session
+
+### FR-013: Real-Time Progress and Contextual Updates
+- **Per-File Updates**: Show format `original_name → identified_content → new_location/name`
+- **MCP Tool Annotations**: Display tool calls: `[MCP Tool Call: create_category_folder(...)]`
+- **Progress Summaries**: Provide summary every 5-6 files processed
+- **Adaptive Verbosity**: Less detail for large batches, more detail for small collections
+- **Content-Specific Details**: Show extracted information (amounts, dates, error types)
+- **Operation Indicators**: Clearly indicate when creating folders, analyzing files, moving files
+
+### FR-014: Intelligent Summary with Content Understanding
+- **Category Counts**: Report specific counts for each category
+- **Extracted Insights**: Show aggregate understanding:
+  - Invoices: "6 invoices totaling $8,422"
+  - Errors: "5 error screenshots: 3 Azure, 2 Python"
+  - Designs: "4 mobile UI designs"
+- **Content Demonstration**: Prove agent understood content, not just moved files
+- **Proactive Help**: Ask if user wants help finding anything specific
+- **Context Maintenance**: Maintain memory of organized files for follow-up questions
+
+### FR-015: Contextual Memory and Follow-Up Questions
+- **Content Recall**: Remember specific files and their analyzed content
+- **Intelligent Re-Analysis**: Use MCP tools to re-read files for detailed follow-up questions
+- **Contextual Responses**: Provide specific answers (e.g., "The Azure errors were connection timeouts to storage account...")
+- **Location Assistance**: Help locate files by description or content
+- **Multi-Turn Context**: Maintain conversation state across multiple questions
+- **Efficient References**: Don't re-explain everything, reference prior analysis
+
+### FR-016: Dual-Mode Support - Testing vs Production Architecture
 - **Mode Selection**: Support both local and remote operation
   - Priority: CLI flag > environment variable > config file > default (remote)
   - Interactive prompt if no mode specified
