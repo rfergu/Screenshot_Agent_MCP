@@ -1,0 +1,127 @@
+# Screenshot Organizer Configuration
+# Supports both fully local and fully remote operation
+
+# ============================================================================
+# DEMO MODE CONFIGURATION
+# ============================================================================
+demo:
+  # Operation mode: "local", "remote", or "auto"
+  # - local: Uses Phi-3 Vision MLX (fully on-device, zero cost, complete privacy)
+  # - remote: Uses Azure OpenAI/Foundry (cloud-powered, more capable)
+  # - auto: Tries local first, falls back to remote if needed
+  mode: "remote"  # Default to remote (change to "local" for on-device demo)
+
+  # Display options for demo purposes
+  show_model_name: true      # Show [🏠 local] or [☁️ remote] in responses
+  show_latency: false        # Show processing time for each response
+  show_cost_estimate: false  # Show estimated cost per query
+
+# ============================================================================
+# LOCAL MODE CONFIGURATION (Phi-3 Vision MLX)
+# ============================================================================
+local:
+  enabled: true
+
+  # Model configuration
+  model_type: "phi-3-vision-mlx"
+  model_path: null  # null = auto-download, or specify path to model files
+
+  # Generation parameters
+  max_tokens: 2048
+  temperature: 0.7
+
+  # Performance
+  # Note: First query will be slow due to model loading (~8GB)
+  lazy_load: true  # Load model on first use (recommended)
+
+# ============================================================================
+# REMOTE MODE CONFIGURATION (Azure OpenAI / AI Foundry)
+# ============================================================================
+remote:
+  enabled: true
+
+  # Provider: "azure_openai" or "azure_foundry"
+  provider: "azure_openai"
+
+  # Endpoint configuration (uses environment variables)
+  # Set these in your .env file or environment:
+  #   AZURE_AI_CHAT_ENDPOINT
+  #   AZURE_AI_MODEL_DEPLOYMENT
+  #   AZURE_AI_CHAT_KEY
+  endpoint: "${AZURE_AI_CHAT_ENDPOINT}"
+  deployment: "${AZURE_AI_MODEL_DEPLOYMENT}"
+  api_key: "${AZURE_AI_CHAT_KEY}"
+
+  # Fallback to Azure CLI authentication if no API key
+  use_azure_cli_fallback: true
+
+# ============================================================================
+# TOOL CONFIGURATION (Same for both local and remote)
+# ============================================================================
+tools:
+  # Enable/disable specific tools
+  analyze_screenshot: true
+  batch_process: true
+  organize_file: true
+
+  # Tool behavior
+  default_force_vision: false  # For analyze_screenshot
+  default_recursive: false     # For batch_process
+  default_archive: true        # For organize_file
+
+# ============================================================================
+# PROCESSING CONFIGURATION
+# ============================================================================
+processing:
+  # OCR settings
+  ocr_min_words: 10  # Minimum words for OCR to be considered sufficient
+
+  # Vision model settings (for screenshot analysis, not chat)
+  vision_confidence_threshold: 0.5
+
+# ============================================================================
+# ORGANIZATION CONFIGURATION
+# ============================================================================
+organization:
+  base_folder: "~/Screenshots/organized"
+  categories:
+    - code
+    - errors
+    - documentation
+    - design
+    - communication
+    - memes
+    - other
+  keep_originals: true  # Archive originals instead of deleting
+
+# ============================================================================
+# LOGGING CONFIGURATION
+# ============================================================================
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "detailed"  # simple, detailed
+
+# ============================================================================
+# DEMO SCENARIOS
+# ============================================================================
+# Quick configuration presets for different demo scenarios
+
+scenarios:
+  # Fully local demo - emphasizes privacy and zero cost
+  privacy_first:
+    demo.mode: "local"
+    demo.show_model_name: true
+    demo.show_cost_estimate: true
+
+  # Fully remote demo - emphasizes capability
+  cloud_powered:
+    demo.mode: "remote"
+    demo.show_model_name: true
+    demo.show_latency: true
+
+  # Comparison demo - shows both side by side
+  comparison:
+    demo.mode: "auto"
+    demo.show_model_name: true
+    demo.show_latency: true
+    demo.show_cost_estimate: true

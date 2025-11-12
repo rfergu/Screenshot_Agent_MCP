@@ -12,7 +12,7 @@ from rich.prompt import Prompt
 
 from agent_client import AgentClient
 from session_manager import SessionManager
-from utils.config import load_config
+from utils.config import load_config, should_show_model_name
 from utils.logger import get_logger, setup_logging
 
 logger = get_logger(__name__)
@@ -21,14 +21,15 @@ logger = get_logger(__name__)
 class CLIInterface:
     """Interactive command-line interface for screenshot organization."""
 
-    def __init__(self, session_id: Optional[str] = None):
+    def __init__(self, session_id: Optional[str] = None, mode: Optional[str] = None):
         """Initialize CLI interface.
 
         Args:
             session_id: Optional session ID to resume. If None, creates new session.
+            mode: Operation mode ("local", "remote", or None for auto-detect).
         """
         self.console = Console()
-        self.agent_client = AgentClient()
+        self.agent_client = AgentClient(mode=mode)
         self.session_manager = SessionManager()
         self.session_id = session_id or self.session_manager.create_session()
         self.thread = None  # Will be initialized in chat_loop
@@ -54,10 +55,23 @@ class CLIInterface:
 
     def show_welcome(self):
         """Display welcome message and instructions."""
-        welcome_text = """
+        # Mode-specific info
+        mode = self.agent_client.mode
+        model_name = self.agent_client.model_name
+
+        mode_emoji = "🏠" if mode == "local" else "☁️"
+        mode_desc = f"[bold {('green' if mode == 'local' else 'cyan')}]{mode_emoji} {mode.upper()} MODE[/bold {('green' if mode == 'local' else 'cyan')}] - {model_name}"
+
+        if mode == "local":
+            mode_info = "• Running fully on-device with Phi-3 Vision MLX\n• Zero cost, complete privacy, no data leaves your device"
+        else:
+            mode_info = "• Running on Azure OpenAI cloud infrastructure\n• More capable models, requires API access"
+
+        welcome_text = f"""
 [bold cyan]Screenshot Organizer AI Assistant[/bold cyan]
 
-I can help you organize your screenshots using local AI models.
+{mode_desc}
+{mode_info}
 
 Commands:
   • Just chat naturally - ask me to analyze or organize screenshots
@@ -156,8 +170,14 @@ code, errors, documentation, design, communication, memes, other
                 with self.console.status("[cyan]Thinking...[/cyan]", spinner="dots"):
                     response = await self.agent_client.chat(user_input, thread=self.thread)
 
-                # Display response
-                self.console.print("[bold blue]Assistant[/bold blue]")
+                # Display response with model indicator
+                if should_show_model_name():
+                    mode_emoji = "🏠" if self.agent_client.mode == "local" else "☁️"
+                    mode_color = "green" if self.agent_client.mode == "local" else "cyan"
+                    model_badge = f"[{mode_color}]{mode_emoji} {self.agent_client.mode}[/{mode_color}]"
+                    self.console.print(f"[bold blue]Assistant[/bold blue] {model_badge}")
+                else:
+                    self.console.print("[bold blue]Assistant[/bold blue]")
                 self.agent_client.display_response(response)
 
                 # Save session after each exchange
@@ -185,6 +205,11 @@ code, errors, documentation, design, communication, memes, other
     help="Session ID to resume previous conversation"
 )
 @click.option(
+    "--mode",
+    type=click.Choice(["local", "remote"], case_sensitive=False),
+    help="Operation mode: 'local' (Phi-3 on-device) or 'remote' (Azure OpenAI)"
+)
+@click.option(
     "--config",
     type=click.Path(exists=True, path_type=Path),
     help="Path to custom config file"
@@ -194,13 +219,26 @@ code, errors, documentation, design, communication, memes, other
     is_flag=True,
     help="Enable debug logging"
 )
-def main(session: Optional[str], config: Optional[Path], debug: bool):
+def main(session: Optional[str], mode: Optional[str], config: Optional[Path], debug: bool):
     """Interactive AI assistant for organizing screenshots.
 
-    The assistant uses local AI models (OCR + Vision) to analyze screenshots
-    and Microsoft Agent Framework with Azure AI to orchestrate the organization process.
+    Supports two operation modes:
 
-    Required environment variables:
+    LOCAL MODE (--mode local):
+      • Fully on-device with Phi-3 Vision MLX
+      • Zero cost per query, complete privacy
+      • No cloud dependencies or API keys needed
+      • Requires: pip install phi-3-vision-mlx
+
+    REMOTE MODE (--mode remote):
+      • Azure OpenAI cloud-powered
+      • More capable models (GPT-4, etc.)
+      • Requires Azure credentials
+
+    If --mode is not specified, uses configuration file or SCREENSHOT_ORGANIZER_MODE
+    environment variable (defaults to 'remote').
+
+    Required environment variables for REMOTE mode:
       AZURE_AI_CHAT_ENDPOINT - Your Azure endpoint (Foundry or Azure OpenAI)
       AZURE_AI_CHAT_KEY - Your API key (or use 'az login' for CLI auth)
       AZURE_AI_MODEL_DEPLOYMENT - Your deployed model name (e.g., gpt-4o)
@@ -222,29 +260,36 @@ def main(session: Optional[str], config: Optional[Path], debug: bool):
     else:
         load_config()
 
-    # Validate Azure credentials
+    # Determine mode (for validation)
     import os
-    endpoint = os.environ.get("AZURE_AI_CHAT_ENDPOINT")
-    if not endpoint:
-        console = Console()
-        console.print("[red]Error: Azure credentials not configured.[/red]")
-        console.print()
-        console.print("Required environment variables:")
-        console.print("  • AZURE_AI_CHAT_ENDPOINT - Your Azure endpoint")
-        console.print("  • AZURE_AI_CHAT_KEY - Your API key (or use 'az login')")
-        console.print("  • AZURE_AI_MODEL_DEPLOYMENT - Your model name (e.g., gpt-4o)")
-        console.print()
-        console.print("Supported endpoints:")
-        console.print("  - AI Foundry: https://xxx.services.ai.azure.com/api/projects/xxx")
-        console.print("  - Azure OpenAI: https://xxx.cognitiveservices.azure.com")
-        console.print()
-        console.print("Get credentials from: [cyan]https://ai.azure.com[/cyan] or Azure Portal")
-        console.print("See .env.example for setup instructions")
-        sys.exit(1)
+    from utils.config import get_mode
+    actual_mode = mode or get_mode()
+
+    # Validate Azure credentials only for remote mode
+    if actual_mode == "remote":
+        endpoint = os.environ.get("AZURE_AI_CHAT_ENDPOINT")
+        if not endpoint:
+            console = Console()
+            console.print("[red]Error: Azure credentials not configured for remote mode.[/red]")
+            console.print()
+            console.print("Required environment variables:")
+            console.print("  • AZURE_AI_CHAT_ENDPOINT - Your Azure endpoint")
+            console.print("  • AZURE_AI_CHAT_KEY - Your API key (or use 'az login')")
+            console.print("  • AZURE_AI_MODEL_DEPLOYMENT - Your model name (e.g., gpt-4o)")
+            console.print()
+            console.print("Supported endpoints:")
+            console.print("  - AI Foundry: https://xxx.services.ai.azure.com/api/projects/xxx")
+            console.print("  - Azure OpenAI: https://xxx.cognitiveservices.azure.com")
+            console.print()
+            console.print("Get credentials from: [cyan]https://ai.azure.com[/cyan] or Azure Portal")
+            console.print("See .env.example for setup instructions")
+            console.print()
+            console.print("Tip: Use [bold]--mode local[/bold] for fully on-device operation (no API keys needed)")
+            sys.exit(1)
 
     # Create and run CLI
     try:
-        cli = CLIInterface(session_id=session)
+        cli = CLIInterface(session_id=session, mode=mode)
         asyncio.run(cli.chat_loop())
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)

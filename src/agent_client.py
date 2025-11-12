@@ -1,4 +1,9 @@
-"""Agent Framework client for screenshot organization with Azure AI orchestration."""
+"""Agent Framework client for screenshot organization with local or remote AI.
+
+Supports both:
+- Local mode: Fully on-device with Phi-3 Vision MLX (zero cost, complete privacy)
+- Remote mode: Azure OpenAI cloud-powered (more capable, requires API)
+"""
 
 import os
 from typing import Optional
@@ -10,17 +15,24 @@ from rich.console import Console
 from rich.markdown import Markdown
 
 from mcp_tools import analyze_screenshot, batch_process, organize_file
-from utils.config import get as config_get
+from utils.config import get as config_get, get_mode
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
 class AgentClient:
-    """Azure AI Agent client with integrated screenshot organization tools.
+    """Agent Framework client with integrated screenshot organization tools.
 
-    Uses Microsoft Agent Framework to orchestrate conversations with Azure AI
-    models (Foundry or Azure OpenAI) and provide screenshot analysis tools.
+    Supports two operation modes:
+    - Local: Uses Phi-3 Vision MLX (fully on-device, zero cost, complete privacy)
+    - Remote: Uses Azure OpenAI (cloud-powered, more capable)
+
+    Mode is determined by:
+    1. Explicit mode parameter
+    2. SCREENSHOT_ORGANIZER_MODE environment variable
+    3. Config file demo.mode setting
+    4. Default: "remote"
     """
 
     SYSTEM_PROMPT = """You are a helpful AI assistant that helps users organize their screenshots.
@@ -50,14 +62,92 @@ Guidelines:
 
 Be conversational, helpful, and efficient. Focus on making screenshot organization easy for the user."""
 
-    def __init__(self, endpoint: Optional[str] = None, credential: Optional[str] = None):
-        """Initialize agent client with Azure AI.
+    def __init__(self, mode: Optional[str] = None, endpoint: Optional[str] = None, credential: Optional[str] = None):
+        """Initialize agent client with local or remote AI.
 
         Args:
-            endpoint: Azure endpoint. If None, reads from AZURE_AI_CHAT_ENDPOINT env var.
-                     Supports both AI Foundry and Azure OpenAI formats.
-            credential: Azure API key. If None, reads from AZURE_AI_CHAT_KEY env var.
+            mode: Operation mode ("local", "remote", or None for auto-detect).
+            endpoint: Azure endpoint (remote mode only). If None, reads from env.
+            credential: Azure API key (remote mode only). If None, reads from env.
         """
+        # Determine operation mode
+        self.mode = self._detect_mode(mode)
+
+        # Initialize appropriate chat client based on mode
+        if self.mode == "local":
+            self._init_local_client()
+        else:
+            self._init_remote_client(endpoint, credential)
+
+        # Create agent with screenshot organization tools (same for both modes)
+        self.agent = ChatAgent(
+            chat_client=self.chat_client,
+            instructions=self.SYSTEM_PROMPT,
+            tools=[analyze_screenshot, batch_process, organize_file]
+        )
+
+        # Console for rich output
+        self.console = Console()
+
+        # Current thread (managed externally by CLI)
+        self.current_thread = None
+
+        logger.info(f"✓ AgentClient initialized in {self.mode.upper()} mode")
+        logger.info(f"Model: {self.model_name}")
+
+    def _detect_mode(self, explicit_mode: Optional[str] = None) -> str:
+        """Detect operation mode from explicit parameter, env, or config.
+
+        Args:
+            explicit_mode: Explicitly specified mode.
+
+        Returns:
+            Mode string: "local" or "remote"
+        """
+        # Priority 1: Explicit parameter
+        if explicit_mode and explicit_mode.lower() in ["local", "remote"]:
+            logger.debug(f"Mode set explicitly: {explicit_mode}")
+            return explicit_mode.lower()
+
+        # Priority 2: Config/environment (get_mode checks both)
+        detected_mode = get_mode()
+        logger.debug(f"Mode detected from config/env: {detected_mode}")
+
+        # "auto" mode is not yet implemented - default to remote for now
+        if detected_mode == "auto":
+            logger.warning("Auto mode not yet implemented, defaulting to remote")
+            return "remote"
+
+        return detected_mode
+
+    def _init_local_client(self):
+        """Initialize local Phi-3 chat client."""
+        try:
+            from phi3_chat_client import Phi3LocalChatClient
+
+            # Get local model configuration
+            model_path = config_get("local.model_path")
+
+            # Initialize Phi-3 local client
+            self.chat_client = Phi3LocalChatClient(model_path=model_path)
+            self.model_name = "phi-3-vision-mlx"
+            self.endpoint = "local (on-device)"
+
+            logger.info("🏠 LOCAL MODE: Using Phi-3 Vision MLX (fully on-device)")
+            logger.info("   - Zero cost per query")
+            logger.info("   - Complete privacy (no data leaves device)")
+            logger.info("   - First query may be slow (~8GB model loading)")
+
+        except ImportError as e:
+            logger.error(f"Failed to import Phi3LocalChatClient: {e}")
+            raise ImportError(
+                "Local mode requires phi-3-vision-mlx package.\n"
+                "Install with: pip install phi-3-vision-mlx\n"
+                "Or switch to remote mode: --mode remote"
+            ) from e
+
+    def _init_remote_client(self, endpoint: Optional[str] = None, credential: Optional[str] = None):
+        """Initialize remote Azure OpenAI chat client."""
         # Get endpoint
         self.endpoint = endpoint or os.environ.get("AZURE_AI_CHAT_ENDPOINT")
         if not self.endpoint:
@@ -71,8 +161,9 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
 
         # Get model deployment name
         self.model = os.environ.get("AZURE_AI_MODEL_DEPLOYMENT") or config_get(
-            "api.azure_model_deployment", "gpt-4"
+            "remote.deployment", "gpt-4"
         )
+        self.model_name = self.model
 
         # Get credential
         api_key = credential or os.environ.get("AZURE_AI_CHAT_KEY")
@@ -86,7 +177,7 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
                 api_key=api_key,
                 deployment_name=self.model
             )
-            logger.info("Using Azure API key authentication")
+            logger.info("☁️  REMOTE MODE: Using Azure OpenAI with API key")
         else:
             # Fall back to DefaultAzureCredential (az login)
             self.chat_client = AzureOpenAIChatClient(
@@ -94,23 +185,10 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
                 credential=DefaultAzureCredential(),
                 deployment_name=self.model
             )
-            logger.info("Using DefaultAzureCredential (Azure CLI authentication)")
+            logger.info("☁️  REMOTE MODE: Using Azure OpenAI with DefaultAzureCredential")
 
-        # Create agent with screenshot organization tools
-        self.agent = ChatAgent(
-            chat_client=self.chat_client,
-            instructions=self.SYSTEM_PROMPT,
-            tools=[analyze_screenshot, batch_process, organize_file]
-        )
-
-        # Console for rich output
-        self.console = Console()
-
-        # Current thread (managed externally by CLI)
-        self.current_thread = None
-
-        logger.info(f"AgentClient initialized with model deployment: {self.model}")
-        logger.info(f"Endpoint: {self.endpoint}")
+        logger.info(f"   - Endpoint: {self.endpoint}")
+        logger.info(f"   - Model deployment: {self.model}")
 
     def get_new_thread(self):
         """Create a new conversation thread.

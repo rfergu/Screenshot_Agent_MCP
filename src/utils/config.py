@@ -3,7 +3,11 @@ import yaml
 from pathlib import Path
 from typing import Any, Dict
 
-DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "default_config.yaml"
+# Try config.yaml first, fall back to default_config.yaml
+CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
+DEFAULT_CONFIG_PATH = CONFIG_DIR / "config.yaml"
+if not DEFAULT_CONFIG_PATH.exists():
+    DEFAULT_CONFIG_PATH = CONFIG_DIR / "default_config.yaml"
 
 
 def load_config(path: str | None = None) -> Dict[str, Any]:
@@ -46,3 +50,43 @@ def get(path: str, default: Any = None) -> Any:
         else:
             return default
     return cur
+
+
+def get_mode() -> str:
+    """Get the current operation mode (local, remote, or auto).
+
+    Checks in order:
+    1. Environment variable SCREENSHOT_ORGANIZER_MODE
+    2. Config file demo.mode setting
+    3. Default to "remote"
+
+    Returns:
+        Mode string: "local", "remote", or "auto"
+    """
+    # Check environment variable first
+    env_mode = os.environ.get("SCREENSHOT_ORGANIZER_MODE")
+    if env_mode and env_mode.lower() in ["local", "remote", "auto"]:
+        return env_mode.lower()
+
+    # Check config file
+    config_mode = get("demo.mode", "remote")
+    if config_mode and config_mode.lower() in ["local", "remote", "auto"]:
+        return config_mode.lower()
+
+    # Default
+    return "remote"
+
+
+def should_show_model_name() -> bool:
+    """Check if model name should be displayed in responses."""
+    return get("demo.show_model_name", True)
+
+
+def should_show_latency() -> bool:
+    """Check if latency should be displayed."""
+    return get("demo.show_latency", False)
+
+
+def should_show_cost() -> bool:
+    """Check if cost estimates should be displayed."""
+    return get("demo.show_cost_estimate", False)
