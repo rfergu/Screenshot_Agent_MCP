@@ -5,8 +5,9 @@ Framework, enabling fully local operation with no cloud dependencies.
 """
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
+from agent_framework._types import ChatMessage, ChatResponse
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -62,18 +63,35 @@ class Phi3LocalChatClient:
                 logger.error(f"Failed to load Phi-3 Vision model: {e}")
                 raise
 
-    def _convert_messages_to_prompt(self, messages: List[Dict[str, Any]]) -> str:
+    def _convert_messages_to_prompt(self, messages: Union[str, ChatMessage, List[Union[str, ChatMessage]]]) -> str:
         """Convert Agent Framework message format to Phi-3 prompt.
 
         Args:
-            messages: List of message dictionaries with 'role' and 'content'.
+            messages: Messages in Agent Framework format (str, ChatMessage, or list).
 
         Returns:
             Formatted prompt string for Phi-3.
         """
+        # Normalize messages to list
+        if isinstance(messages, str):
+            msg_list = [{"role": "user", "content": messages}]
+        elif isinstance(messages, ChatMessage):
+            msg_list = [{"role": messages.role, "content": messages.content}]
+        elif isinstance(messages, list):
+            msg_list = []
+            for msg in messages:
+                if isinstance(msg, str):
+                    msg_list.append({"role": "user", "content": msg})
+                elif isinstance(msg, ChatMessage):
+                    msg_list.append({"role": msg.role, "content": msg.content})
+                elif isinstance(msg, dict):
+                    msg_list.append(msg)
+        else:
+            msg_list = []
+
         prompt_parts = []
 
-        for msg in messages:
+        for msg in msg_list:
             role = msg.get("role", "user")
             content = msg.get("content", "")
 
@@ -117,43 +135,36 @@ class Phi3LocalChatClient:
         # In a full implementation, you'd parse the response for tool calls
         return None
 
-    async def create_chat_completion(
+    async def get_response(
         self,
-        messages: List[Dict[str, Any]],
-        tools: Optional[List[Dict[str, Any]]] = None,
-        temperature: float = 0.7,
-        max_tokens: int = 2048,
+        messages: Union[str, ChatMessage, List[Union[str, ChatMessage]]],
+        *,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        tools: Optional[Any] = None,
         **kwargs
-    ) -> Dict[str, Any]:
-        """Generate chat completion using local Phi-3 model.
+    ) -> ChatResponse:
+        """Generate chat response using local Phi-3 model.
 
         This implements the Agent Framework ChatClient interface for local operation.
 
         Args:
-            messages: List of conversation messages in Agent Framework format.
+            messages: User messages in Agent Framework format (str, ChatMessage, or list).
+            temperature: Sampling temperature (0.0-1.0), defaults to 0.7.
+            max_tokens: Maximum tokens to generate, defaults to 2048.
             tools: Optional list of available tools (for function calling).
-            temperature: Sampling temperature (0.0-1.0).
-            max_tokens: Maximum tokens to generate.
             **kwargs: Additional generation parameters.
 
         Returns:
-            Response dictionary in Agent Framework expected format:
-            {
-                "choices": [{
-                    "message": {
-                        "role": "assistant",
-                        "content": "response text"
-                    },
-                    "finish_reason": "stop"
-                }],
-                "usage": {
-                    "prompt_tokens": 0,
-                    "completion_tokens": 0,
-                    "total_tokens": 0
-                }
-            }
+            ChatResponse object from Agent Framework.
         """
         self._ensure_model_loaded()
+
+        # Set defaults
+        if temperature is None:
+            temperature = 0.7
+        if max_tokens is None:
+            max_tokens = 2048
 
         # Convert messages to Phi-3 prompt format
         prompt = self._convert_messages_to_prompt(messages)
@@ -162,8 +173,6 @@ class Phi3LocalChatClient:
 
         try:
             # Generate response using Phi-3
-            # Note: phi3v.Phi3Vision doesn't expose temperature/max_tokens in the same way
-            # This is a simplified call - adjust based on actual phi3v API
             response_text = self.model.generate(prompt)
 
             if not response_text:
@@ -171,49 +180,14 @@ class Phi3LocalChatClient:
 
             logger.debug(f"🏠 LOCAL: Generated {len(response_text)} characters")
 
-            # Check if response contains tool calls (basic detection)
-            tool_calls = self._parse_tool_calls(response_text) if tools else None
-
-            # Format response in Agent Framework expected structure
-            response = {
-                "choices": [{
-                    "message": {
-                        "role": "assistant",
-                        "content": response_text,
-                    },
-                    "finish_reason": "stop" if not tool_calls else "tool_calls",
-                    "index": 0
-                }],
-                "usage": {
-                    "prompt_tokens": len(prompt.split()),  # Rough estimate
-                    "completion_tokens": len(response_text.split()),
-                    "total_tokens": len(prompt.split()) + len(response_text.split())
-                },
-                "model": self.model_name,
-                "created": 0  # Placeholder
-            }
-
-            # Add tool calls if detected
-            if tool_calls:
-                response["choices"][0]["message"]["tool_calls"] = tool_calls
-
-            return response
+            # Return ChatResponse object
+            return ChatResponse(content=response_text)
 
         except Exception as e:
             logger.error(f"Error generating local response: {e}", exc_info=True)
-            # Return error response in expected format
-            return {
-                "choices": [{
-                    "message": {
-                        "role": "assistant",
-                        "content": f"I encountered an error processing your request locally: {str(e)}\n\nTip: You can try remote mode with --mode remote"
-                    },
-                    "finish_reason": "stop",
-                    "index": 0
-                }],
-                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-                "model": self.model_name
-            }
+            # Return error response
+            error_msg = f"I encountered an error processing your request locally: {str(e)}\n\nTip: You can try remote mode with --mode remote"
+            return ChatResponse(content=error_msg)
 
     # Additional methods for compatibility with Agent Framework
 
