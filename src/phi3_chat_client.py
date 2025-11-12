@@ -64,6 +64,8 @@ class LocalFoundryChatClient(BaseChatClient):
         # 2. Use provided endpoint (if specific URL given)
         # 3. Fall back to default port with warning
         if endpoint is None or endpoint == "auto":
+            # Clear cache to get fresh endpoint/model detection
+            clear_endpoint_cache()
             logger.debug("Attempting to auto-detect Foundry Local endpoint...")
             detected_endpoint = detect_foundry_endpoint()
 
@@ -335,20 +337,20 @@ class LocalFoundryChatClient(BaseChatClient):
                     break
 
             functools_instructions = """
-IMPORTANT: When the user's request requires calling a function, you MUST output the function call in this exact format:
-functools[{"name": "function_name", "arguments": {"arg1": "value1", "arg2": "value2"}}]
+FUNCTION CALLING: When you need to call a function, output ONLY the function call in this format:
+functools[{"name": "function_name", "arguments": {"arg1": "value1"}}]
 
-Guidelines:
-1. Extract ALL required parameters from the user's message (e.g., file paths, options)
-2. Pass them as arguments in the JSON object
-3. Use the exact argument names specified in the function schema
-4. Do NOT leave arguments empty - extract values from the user's request
-5. Do NOT explain what you would do - actually call the function with correct arguments
+CRITICAL RULES:
+1. Extract parameters from user's message (paths, values, etc.)
+2. Use exact argument names from the function schema
+3. Output the functools call ONCE - do not repeat it
+4. After calling a function, WAIT for the result before responding
+5. Do NOT add notes, explanations, or commentary around the function call
+6. When you receive function results, provide a helpful natural language summary
 
-Example:
-User: "Analyze this screenshot: /path/to/file.png"
-Correct: functools[{"name": "analyze_screenshot", "arguments": {"path": "/path/to/file.png", "force_vision": false}}]
-Wrong: functools[{"name": "analyze_screenshot", "arguments": {}}]
+Example - User: "Analyze screenshot: /path/file.png"
+Good: functools[{"name": "analyze_screenshot", "arguments": {"path": "/path/file.png", "force_vision": false}}]
+Bad: (Note: ...) functools[...] (Note: ...) functools[...]
 """
 
             if system_msg_idx is not None:
@@ -403,11 +405,20 @@ Wrong: functools[{"name": "analyze_screenshot", "arguments": {}}]
 
                 # Build contents list
                 contents = []
+                clean_text = None
 
                 # Add text content if present (remove functools format from display text)
                 if response_text:
                     # Remove functools[...] from the text for cleaner display
-                    clean_text = re.sub(r'functools\[.*?\]', '', response_text).strip()
+                    # Use DOTALL flag to match across newlines
+                    clean_text = re.sub(r'functools\[.*?\]', '', response_text, flags=re.DOTALL).strip()
+
+                    # Also remove common artifacts and notes
+                    clean_text = re.sub(r'\(Note:.*?\)', '', clean_text, flags=re.DOTALL).strip()
+
+                    # Remove extra whitespace and newlines
+                    clean_text = re.sub(r'\n\s*\n', '\n\n', clean_text).strip()
+
                     if clean_text:
                         contents.append({"type": "text", "text": clean_text})
 
@@ -441,10 +452,13 @@ Wrong: functools[{"name": "analyze_screenshot", "arguments": {}}]
                         logger.info(f"  - functools call: {func_call['name']}({arguments_json})")
 
                 # Create ChatMessage with contents
+                # Use cleaned text for the text property (what gets displayed)
+                display_text = clean_text if response_text else None
+
                 chat_message = AFChatMessage(
                     role=Role.ASSISTANT,
                     contents=contents if contents else None,
-                    text=message.content  # Keep original text with functools for debugging
+                    text=display_text  # Use cleaned text without functools
                 )
 
                 logger.debug(f"🏠 LOCAL: Generated response with {len(contents)} content items")
