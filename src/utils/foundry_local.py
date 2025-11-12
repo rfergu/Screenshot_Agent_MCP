@@ -130,12 +130,20 @@ def detect_model_id(model_name: str, base_endpoint: str) -> Optional[str]:
         models_data = response.json()
         models = models_data.get("data", [])
 
-        # Find model matching the simple name (case-insensitive prefix match)
+        # Find model matching the simple name (case-insensitive match)
+        # Prefer exact/longer matches over shorter ones (e.g., "phi-4-mini" before "phi-4")
         model_name_lower = model_name.lower()
-        for model in models:
+
+        # Sort models by ID length (descending) to prefer longer matches
+        sorted_models = sorted(models, key=lambda m: len(m.get("id", "")), reverse=True)
+
+        for model in sorted_models:
             model_id = model.get("id", "")
-            # Match "phi-4" to "Phi-4-generic-gpu:1"
-            if model_id.lower().startswith(model_name_lower):
+            model_id_lower = model_id.lower()
+
+            # Check if model_id contains the model_name as a prefix (case-insensitive)
+            # e.g., "phi-4-mini" should match "Phi-4-mini-instruct-generic-gpu:4" not "Phi-4-generic-gpu:1"
+            if model_id_lower.startswith(model_name_lower):
                 logger.info(f"✓ Detected model ID: {model_id} (for {model_name})")
                 _cached_model_id = model_id
                 return model_id
