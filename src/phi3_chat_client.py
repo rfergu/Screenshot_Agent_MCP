@@ -92,7 +92,7 @@ class LocalFoundryChatClient:
         if isinstance(messages, str):
             return [UserMessage(content=messages)]
         elif isinstance(messages, ChatMessage):
-            role = messages.role.lower()
+            role = str(messages.role).lower()  # Convert Role enum to string
             content = messages.content or ""
             if role == "system":
                 return [SystemMessage(content=content)]
@@ -108,7 +108,7 @@ class LocalFoundryChatClient:
                 if isinstance(msg, str):
                     result.append(UserMessage(content=msg))
                 elif isinstance(msg, ChatMessage):
-                    role = msg.role.lower()
+                    role = str(msg.role).lower()  # Convert Role enum to string
                     content = msg.content or ""
                     if role == "system":
                         result.append(SystemMessage(content=content))
