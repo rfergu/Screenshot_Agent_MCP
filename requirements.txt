@@ -2,6 +2,9 @@
 azure-ai-inference>=1.0.0b9
 azure-identity>=1.15.0
 
+# Azure OpenAI SDK
+openai>=1.0.0
+
 # MCP Protocol
 mcp>=1.0.0
 

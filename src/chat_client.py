@@ -1,8 +1,8 @@
-"""Azure AI Foundry orchestrated chat client for screenshot organization."""
+"""Azure AI Foundry / Azure OpenAI orchestrated chat client for screenshot organization."""
 
 import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from azure.ai.inference import ChatCompletionsClient
 from azure.ai.inference.models import (
@@ -16,6 +16,7 @@ from azure.ai.inference.models import (
 )
 from azure.core.credentials import AzureKeyCredential
 from azure.identity import DefaultAzureCredential
+from openai import AzureOpenAI
 from rich.console import Console
 from rich.markdown import Markdown
 
@@ -27,7 +28,12 @@ logger = get_logger(__name__)
 
 
 class ChatClient:
-    """Azure AI Foundry orchestrated chat interface with MCP tool integration."""
+    """Azure AI Foundry / Azure OpenAI chat interface with MCP tool integration.
+
+    Supports both:
+    - AI Foundry serverless endpoints: https://xxx.services.ai.azure.com/api/projects/xxx
+    - Azure OpenAI resource endpoints: https://xxx.cognitiveservices.azure.com
+    """
 
     SYSTEM_PROMPT = """You are a helpful AI assistant that helps users organize their screenshots.
 
@@ -57,22 +63,82 @@ Guidelines:
 Be conversational, helpful, and efficient. Focus on making screenshot organization easy for the user."""
 
     def __init__(self, endpoint: Optional[str] = None, credential: Optional[str] = None):
-        """Initialize chat client with Azure AI Foundry.
+        """Initialize chat client with Azure AI Foundry or Azure OpenAI.
 
         Args:
-            endpoint: Azure AI Foundry endpoint. If None, reads from AZURE_AI_CHAT_ENDPOINT env var.
-            credential: Azure API key. If None, reads from AZURE_AI_CHAT_KEY env var or uses DefaultAzureCredential.
+            endpoint: Azure endpoint. If None, reads from AZURE_AI_CHAT_ENDPOINT env var.
+                     Supports both AI Foundry and Azure OpenAI formats.
+            credential: Azure API key. If None, reads from AZURE_AI_CHAT_KEY env var.
         """
         # Get endpoint
         self.endpoint = endpoint or os.environ.get("AZURE_AI_CHAT_ENDPOINT")
         if not self.endpoint:
             raise ValueError(
-                "Azure AI Foundry endpoint not provided. Set AZURE_AI_CHAT_ENDPOINT environment variable "
+                "Azure endpoint not provided. Set AZURE_AI_CHAT_ENDPOINT environment variable "
                 "or pass endpoint parameter.\n"
-                "Get your endpoint from: https://ai.azure.com → Your Project → Settings"
+                "Supported formats:\n"
+                "  - AI Foundry: https://xxx.services.ai.azure.com/api/projects/xxx\n"
+                "  - Azure OpenAI: https://xxx.cognitiveservices.azure.com"
             )
 
-        # Get credential (API key or Azure CLI authentication)
+        # Get model deployment name
+        self.model = os.environ.get("AZURE_AI_MODEL_DEPLOYMENT") or config_get(
+            "api.azure_model_deployment", "gpt-4"
+        )
+        self.max_context_length = config_get("api.max_context_length", 8000)
+
+        # Detect endpoint type and initialize appropriate client
+        if "cognitiveservices.azure.com" in self.endpoint:
+            self.endpoint_type = "azure_openai"
+            self._init_azure_openai(credential)
+        elif "services.ai.azure.com" in self.endpoint:
+            self.endpoint_type = "ai_foundry"
+            self._init_ai_foundry(credential)
+        else:
+            raise ValueError(
+                f"Unknown endpoint format: {self.endpoint}\n"
+                "Expected either:\n"
+                "  - AI Foundry: https://xxx.services.ai.azure.com/api/projects/xxx\n"
+                "  - Azure OpenAI: https://xxx.cognitiveservices.azure.com"
+            )
+
+        self.console = Console()
+        self.conversation_history: List[Any] = []
+        self.tool_handlers = MCPToolHandlers()
+
+        logger.info(f"ChatClient initialized with model deployment: {self.model}")
+        logger.info(f"Endpoint: {self.endpoint}")
+        logger.info(f"Endpoint type: {self.endpoint_type}")
+
+    def _init_azure_openai(self, credential: Optional[str]):
+        """Initialize Azure OpenAI client.
+
+        Args:
+            credential: API key for authentication.
+        """
+        api_key = credential or os.environ.get("AZURE_AI_CHAT_KEY")
+        if not api_key:
+            raise ValueError(
+                "Azure OpenAI requires API key. Set AZURE_AI_CHAT_KEY environment variable."
+            )
+
+        # Azure OpenAI endpoint should not include /chat/completions path
+        # The SDK adds this automatically
+        api_base = self.endpoint.split("/chat")[0] if "/chat" in self.endpoint else self.endpoint
+
+        self.client = AzureOpenAI(
+            api_key=api_key,
+            api_version="2024-08-01-preview",
+            azure_endpoint=api_base
+        )
+        logger.info("Initialized Azure OpenAI client")
+
+    def _init_ai_foundry(self, credential: Optional[str]):
+        """Initialize Azure AI Foundry client.
+
+        Args:
+            credential: API key for authentication (optional, can use Azure CLI).
+        """
         api_key = credential or os.environ.get("AZURE_AI_CHAT_KEY")
         if api_key:
             self.credential = AzureKeyCredential(api_key)
@@ -82,24 +148,11 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
             self.credential = DefaultAzureCredential()
             logger.info("Using DefaultAzureCredential (Azure CLI authentication)")
 
-        # Initialize client
         self.client = ChatCompletionsClient(
             endpoint=self.endpoint,
             credential=self.credential
         )
-
-        # Get model deployment name
-        self.model = os.environ.get("AZURE_AI_MODEL_DEPLOYMENT") or config_get(
-            "api.azure_model_deployment", "gpt-4"
-        )
-        self.max_context_length = config_get("api.max_context_length", 8000)
-
-        self.console = Console()
-        self.conversation_history: List[Any] = []
-        self.tool_handlers = MCPToolHandlers()
-
-        logger.info(f"ChatClient initialized with model deployment: {self.model}")
-        logger.info(f"Endpoint: {self.endpoint}")
+        logger.info("Initialized AI Foundry client")
 
     def _get_tool_definitions(self) -> List[ChatCompletionsToolDefinition]:
         """Get Azure AI tool definitions for MCP tools.
@@ -192,6 +245,100 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
             )
         ]
 
+    def _get_tool_definitions_openai(self) -> List[Dict[str, Any]]:
+        """Get OpenAI-format tool definitions for MCP tools.
+
+        Returns:
+            List of tool definitions in OpenAI format.
+        """
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": "analyze_screenshot",
+                    "description": "Analyze a screenshot using OCR or vision model to determine its category and suggest a filename",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "description": "Absolute path to the screenshot file"
+                            },
+                            "force_vision": {
+                                "type": "boolean",
+                                "description": "Force use of vision model even if OCR would be sufficient",
+                            }
+                        },
+                        "required": ["path"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "batch_process",
+                    "description": "Process all screenshots in a folder, analyzing and categorizing each one",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "folder": {
+                                "type": "string",
+                                "description": "Path to the folder containing screenshots"
+                            },
+                            "recursive": {
+                                "type": "boolean",
+                                "description": "Process subfolders recursively",
+                            },
+                            "max_files": {
+                                "type": "integer",
+                                "description": "Maximum number of files to process (1-1000)"
+                            },
+                            "organize": {
+                                "type": "boolean",
+                                "description": "Automatically organize files after analysis",
+                            }
+                        },
+                        "required": ["folder"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "organize_file",
+                    "description": "Move and rename a screenshot file based on its category",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "source_path": {
+                                "type": "string",
+                                "description": "Current path of the file to organize"
+                            },
+                            "category": {
+                                "type": "string",
+                                "enum": ["code", "errors", "documentation", "design",
+                                       "communication", "memes", "other"],
+                                "description": "Category for organization"
+                            },
+                            "new_filename": {
+                                "type": "string",
+                                "description": "New filename for the file (without extension)"
+                            },
+                            "archive_original": {
+                                "type": "boolean",
+                                "description": "Keep a copy of the original file in archive",
+                            },
+                            "base_path": {
+                                "type": "string",
+                                "description": "Base path for organized files"
+                            }
+                        },
+                        "required": ["source_path", "category", "new_filename"]
+                    }
+                }
+            }
+        ]
+
     def _execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a tool call through the MCP handlers.
 
@@ -226,10 +373,25 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
         Returns:
             Assistant's response text.
         """
+        logger.debug(f"User message: {user_message}")
+
+        # Route to appropriate client implementation
+        if self.endpoint_type == "azure_openai":
+            return self._chat_azure_openai(user_message)
+        else:
+            return self._chat_ai_foundry(user_message)
+
+    def _chat_ai_foundry(self, user_message: str) -> str:
+        """Chat implementation for Azure AI Foundry endpoint.
+
+        Args:
+            user_message: User's message.
+
+        Returns:
+            Assistant's response text.
+        """
         # Add user message to history
         self.conversation_history.append(UserMessage(content=user_message))
-
-        logger.debug(f"User message: {user_message}")
 
         # Prepare messages for API call
         messages = [SystemMessage(content=self.SYSTEM_PROMPT)] + self.conversation_history
@@ -270,7 +432,7 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
                             )
                         )
 
-                # Get next response from Azure AI with tool results
+                # Get next response with tool results
                 messages = [SystemMessage(content=self.SYSTEM_PROMPT)] + self.conversation_history
 
                 response = self.client.complete(
@@ -292,6 +454,133 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
 
         except Exception as e:
             error_msg = f"Error communicating with Azure AI Foundry: {e}"
+            logger.error(error_msg, exc_info=True)
+            return f"Sorry, I encountered an error: {str(e)}"
+
+    def _chat_azure_openai(self, user_message: str) -> str:
+        """Chat implementation for Azure OpenAI endpoint.
+
+        Args:
+            user_message: User's message.
+
+        Returns:
+            Assistant's response text.
+        """
+        # Convert AI Foundry message objects to OpenAI dict format
+        def convert_messages_to_openai(messages):
+            """Convert Azure AI Foundry messages to OpenAI format."""
+            openai_messages = []
+            for msg in messages:
+                if isinstance(msg, SystemMessage):
+                    openai_messages.append({"role": "system", "content": msg.content})
+                elif isinstance(msg, UserMessage):
+                    openai_messages.append({"role": "user", "content": msg.content})
+                elif isinstance(msg, AssistantMessage):
+                    msg_dict = {"role": "assistant"}
+                    if hasattr(msg, "content") and msg.content:
+                        msg_dict["content"] = msg.content
+                    if hasattr(msg, "tool_calls") and msg.tool_calls:
+                        msg_dict["tool_calls"] = [
+                            {
+                                "id": tc.id,
+                                "type": "function",
+                                "function": {
+                                    "name": tc.function.name,
+                                    "arguments": tc.function.arguments
+                                }
+                            }
+                            for tc in msg.tool_calls
+                        ]
+                    openai_messages.append(msg_dict)
+                elif isinstance(msg, ToolMessage):
+                    openai_messages.append({
+                        "role": "tool",
+                        "content": msg.content,
+                        "tool_call_id": msg.tool_call_id
+                    })
+            return openai_messages
+
+        # Add user message to history
+        self.conversation_history.append(UserMessage(content=user_message))
+
+        try:
+            # Prepare messages for API call
+            messages = [SystemMessage(content=self.SYSTEM_PROMPT)] + self.conversation_history
+            openai_messages = convert_messages_to_openai(messages)
+
+            # Initial API call with tools
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=openai_messages,
+                tools=self._get_tool_definitions_openai(),
+            )
+
+            choice = response.choices[0]
+            assistant_message = choice.message
+
+            # Handle tool calls
+            while choice.finish_reason == "tool_calls":
+                logger.debug(f"Assistant requested {len(assistant_message.tool_calls)} tool calls")
+
+                # Convert OpenAI tool calls to AI Foundry format for storage
+                from azure.ai.inference.models import ChatCompletionsToolCall, FunctionCall
+
+                tool_calls_foundry = [
+                    ChatCompletionsToolCall(
+                        id=tc.id,
+                        function=FunctionCall(
+                            name=tc.function.name,
+                            arguments=tc.function.arguments
+                        )
+                    )
+                    for tc in assistant_message.tool_calls
+                ]
+
+                # Add assistant message with tool calls to history
+                self.conversation_history.append(
+                    AssistantMessage(tool_calls=tool_calls_foundry)
+                )
+
+                # Execute each tool call
+                for tool_call in assistant_message.tool_calls:
+                    tool_name = tool_call.function.name
+                    tool_args = json.loads(tool_call.function.arguments)
+
+                    # Execute tool
+                    tool_result = self._execute_tool(tool_name, tool_args)
+
+                    # Add tool result to history
+                    self.conversation_history.append(
+                        ToolMessage(
+                            content=json.dumps(tool_result),
+                            tool_call_id=tool_call.id
+                        )
+                    )
+
+                # Get next response with tool results
+                messages = [SystemMessage(content=self.SYSTEM_PROMPT)] + self.conversation_history
+                openai_messages = convert_messages_to_openai(messages)
+
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=openai_messages,
+                    tools=self._get_tool_definitions_openai(),
+                )
+
+                choice = response.choices[0]
+                assistant_message = choice.message
+
+            # Final response without tool calls
+            response_text = assistant_message.content or ""
+
+            # Add final response to history
+            self.conversation_history.append(AssistantMessage(content=response_text))
+
+            logger.debug(f"Assistant response: {response_text[:100]}...")
+            return response_text
+
+        except Exception as e:
+            error_msg = f"Error communicating with Azure OpenAI: {e}"
             logger.error(error_msg, exc_info=True)
             return f"Sorry, I encountered an error: {str(e)}"
 
