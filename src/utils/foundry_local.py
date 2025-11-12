@@ -2,17 +2,20 @@
 
 This module helps auto-detect the Azure AI Foundry Local service endpoint,
 which uses a dynamically-allocated port that changes on each service start.
+Also detects the correct model ID format (e.g., "Phi-4-generic-gpu:1" not "phi-4").
 """
 
 import re
 import subprocess
-from typing import Optional
+import requests
+from typing import Optional, Tuple
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 # Cache for session duration (avoid running subprocess repeatedly)
 _cached_endpoint: Optional[str] = None
+_cached_model_id: Optional[str] = None
 
 
 def detect_foundry_endpoint() -> Optional[str]:
@@ -92,11 +95,67 @@ def detect_foundry_endpoint() -> Optional[str]:
         return None
 
 
+def detect_model_id(model_name: str, base_endpoint: str) -> Optional[str]:
+    """Detect the actual model ID from Foundry Local's /v1/models endpoint.
+
+    Foundry Local uses specific model IDs like "Phi-4-generic-gpu:1" instead of
+    simple names like "phi-4". This function queries the models API to find the
+    correct ID.
+
+    Args:
+        model_name: Simple model name (e.g., "phi-4")
+        base_endpoint: Base URL (e.g., "http://127.0.0.1:60779")
+
+    Returns:
+        Full model ID (e.g., "Phi-4-generic-gpu:1"), or None if not found.
+    """
+    global _cached_model_id
+
+    # Return cached value if available
+    if _cached_model_id is not None:
+        logger.debug(f"Using cached model ID: {_cached_model_id}")
+        return _cached_model_id
+
+    try:
+        # Query /v1/models endpoint
+        models_url = f"{base_endpoint}/v1/models"
+        logger.debug(f"Querying models list from {models_url}")
+
+        response = requests.get(models_url, timeout=5)
+        response.raise_for_status()
+
+        models_data = response.json()
+        models = models_data.get("data", [])
+
+        # Find model matching the simple name (case-insensitive prefix match)
+        model_name_lower = model_name.lower()
+        for model in models:
+            model_id = model.get("id", "")
+            # Match "phi-4" to "Phi-4-generic-gpu:1"
+            if model_id.lower().startswith(model_name_lower):
+                logger.info(f"✓ Detected model ID: {model_id} (for {model_name})")
+                _cached_model_id = model_id
+                return model_id
+
+        logger.warning(f"Could not find model matching '{model_name}' in available models")
+        logger.debug(f"Available models: {[m.get('id') for m in models]}")
+        return None
+
+    except requests.RequestException as e:
+        logger.warning(f"Failed to query models endpoint: {e}")
+        return None
+    except Exception as e:
+        logger.warning(f"Unexpected error detecting model ID: {e}")
+        logger.debug("Exception details:", exc_info=True)
+        return None
+
+
 def clear_endpoint_cache():
-    """Clear the cached endpoint (useful for testing or after service restart)."""
-    global _cached_endpoint
+    """Clear the cached endpoint and model ID (useful for testing or after service restart)."""
+    global _cached_endpoint, _cached_model_id
     _cached_endpoint = None
-    logger.debug("Cleared Foundry endpoint cache")
+    _cached_model_id = None
+    logger.debug("Cleared Foundry endpoint and model ID cache")
 
 
 def check_foundry_service_running() -> bool:

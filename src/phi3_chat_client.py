@@ -16,7 +16,7 @@ from agent_framework._types import ChatMessage, ChatResponse
 from azure.ai.inference import ChatCompletionsClient
 from azure.ai.inference.models import SystemMessage, UserMessage, AssistantMessage
 from utils.logger import get_logger
-from utils.foundry_local import detect_foundry_endpoint, get_foundry_setup_instructions
+from utils.foundry_local import detect_foundry_endpoint, detect_model_id, get_foundry_setup_instructions
 
 logger = get_logger(__name__)
 
@@ -74,6 +74,20 @@ class LocalFoundryChatClient:
             # Use provided endpoint
             self.endpoint = endpoint
             logger.info(f"Using configured endpoint: {self.endpoint}")
+
+        # Detect the actual model ID from /v1/models endpoint
+        # Foundry Local uses IDs like "Phi-4-generic-gpu:1" not "phi-4"
+        base_endpoint = self.endpoint.replace("/v1/chat/completions", "")
+        detected_model_id = detect_model_id(model, base_endpoint)
+
+        if detected_model_id:
+            self.model_name = detected_model_id
+            logger.info(f"✓ Using model ID: {self.model_name}")
+        else:
+            # Keep the simple name as fallback, but warn
+            self.model_name = model
+            logger.warning(f"⚠️  Could not detect full model ID, using: {self.model_name}")
+            logger.warning("    This may cause 404 errors. Check 'foundry model load phi-4'")
 
         # Initialize Azure AI Inference client (works with local server too)
         self.client = ChatCompletionsClient(
