@@ -306,9 +306,9 @@ class TestMCPToolHandlers:
             img = Image.new("RGB", (100, 100), color="white")
             img.save(test_folder / f"test_{i}.png")
 
-        # Mock OCR
+        # Mock OCR with enough text to exceed min_words threshold
         with patch("processors.ocr_processor.pytesseract.image_to_string") as mock_ocr:
-            mock_ocr.return_value = "Error 404: Page not found"
+            mock_ocr.return_value = "Error 404: Page not found. The requested resource could not be located on the server."
 
             config = {
                 "ocr_min_words": 3,

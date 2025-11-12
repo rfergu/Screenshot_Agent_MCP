@@ -5,6 +5,9 @@ azure-identity>=1.15.0
 # Azure OpenAI SDK
 openai>=1.0.0
 
+# Microsoft Agent Framework
+agent-framework>=0.1.0
+
 # MCP Protocol
 mcp>=1.0.0
 

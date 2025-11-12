@@ -1,10 +1,13 @@
-"""Session management for conversation persistence and context windowing."""
+"""Session management for conversation persistence and context windowing.
+
+Stores AgentThread state from Microsoft Agent Framework for conversation persistence.
+"""
 
 import json
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from uuid import uuid4
 
 from utils.logger import get_logger
@@ -13,7 +16,11 @@ logger = get_logger(__name__)
 
 
 class SessionManager:
-    """Manages conversation sessions with persistence and cleanup."""
+    """Manages conversation sessions with persistence and cleanup.
+
+    Stores serialized AgentThread data from Microsoft Agent Framework,
+    allowing conversations to persist across sessions.
+    """
 
     def __init__(self, session_dir: Optional[Path] = None):
         """Initialize session manager.
@@ -46,7 +53,7 @@ class SessionManager:
             "session_id": session_id,
             "created_at": datetime.now().isoformat(),
             "last_accessed": datetime.now().isoformat(),
-            "conversation_history": []
+            "thread_data": {}
         }
         
         self._write_session_file(session_file, session_data)
@@ -54,12 +61,12 @@ class SessionManager:
         
         return session_id
 
-    def save_session(self, session_id: str, conversation_history: List[Dict[str, Any]]):
-        """Save conversation history to session file.
+    def save_session(self, session_id: str, thread_data: Dict[str, Any]):
+        """Save AgentThread state to session file.
 
         Args:
             session_id: Session ID.
-            conversation_history: List of conversation messages.
+            thread_data: Serialized AgentThread data from await thread.serialize().
         """
         session_file = self._get_session_file(session_id)
         
@@ -74,58 +81,56 @@ class SessionManager:
         
         # Update session data
         session_data["last_accessed"] = datetime.now().isoformat()
-        session_data["conversation_history"] = conversation_history
-        session_data["message_count"] = len(conversation_history)
-        
-        self._write_session_file(session_file, session_data)
-        logger.debug(f"Saved session {session_id} with {len(conversation_history)} messages")
+        session_data["thread_data"] = thread_data
 
-    def load_session(self, session_id: str) -> Optional[List[Dict[str, Any]]]:
-        """Load conversation history from session file.
+        self._write_session_file(session_file, session_data)
+        logger.debug(f"Saved session {session_id} with AgentThread state")
+
+    def load_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Load AgentThread state from session file.
 
         Args:
             session_id: Session ID.
 
         Returns:
-            Conversation history if session exists, None otherwise.
+            Serialized AgentThread data if session exists, None otherwise.
         """
         session_file = self._get_session_file(session_id)
-        
+
         if not session_file.exists():
             logger.warning(f"Session file not found: {session_id}")
             return None
-        
+
         try:
             session_data = self._read_session_file(session_file)
-            
+
             # Update last accessed time
             session_data["last_accessed"] = datetime.now().isoformat()
             self._write_session_file(session_file, session_data)
-            
-            conversation_history = session_data.get("conversation_history", [])
-            logger.info(f"Loaded session {session_id} with {len(conversation_history)} messages")
-            
-            return conversation_history
-            
+
+            thread_data = session_data.get("thread_data", {})
+            logger.info(f"Loaded session {session_id} with AgentThread state")
+
+            return thread_data
+
         except Exception as e:
             logger.error(f"Failed to load session {session_id}: {e}")
             return None
 
     def clear_session(self, session_id: str):
-        """Clear conversation history for a session but keep the session file.
+        """Clear AgentThread state for a session but keep the session file.
 
         Args:
             session_id: Session ID.
         """
         session_file = self._get_session_file(session_id)
-        
+
         if session_file.exists():
             session_data = self._read_session_file(session_file)
-            session_data["conversation_history"] = []
-            session_data["message_count"] = 0
+            session_data["thread_data"] = {}
             session_data["last_accessed"] = datetime.now().isoformat()
             self._write_session_file(session_file, session_data)
-            logger.info(f"Cleared conversation history for session {session_id}")
+            logger.info(f"Cleared thread state for session {session_id}")
 
     def delete_session(self, session_id: str):
         """Delete a session file completely.

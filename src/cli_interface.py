@@ -1,5 +1,6 @@
 """Interactive CLI interface for screenshot organization chat."""
 
+import asyncio
 import sys
 from pathlib import Path
 from typing import Optional
@@ -9,7 +10,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
 
-from chat_client import ChatClient
+from agent_client import AgentClient
 from session_manager import SessionManager
 from utils.config import load_config
 from utils.logger import get_logger, setup_logging
@@ -27,18 +28,29 @@ class CLIInterface:
             session_id: Optional session ID to resume. If None, creates new session.
         """
         self.console = Console()
-        self.chat_client = ChatClient()
+        self.agent_client = AgentClient()
         self.session_manager = SessionManager()
         self.session_id = session_id or self.session_manager.create_session()
-        
-        # Load previous session if resuming
-        if session_id:
-            history = self.session_manager.load_session(session_id)
-            if history:
-                self.chat_client.conversation_history = history
-                logger.info(f"Resumed session {session_id} with {len(history)} messages")
+        self.thread = None  # Will be initialized in chat_loop
 
         logger.info(f"CLI initialized with session: {self.session_id}")
+
+    async def initialize_thread(self):
+        """Initialize or load thread for conversation."""
+        # Try to load previous session if resuming
+        if self.session_id:
+            thread_data = self.session_manager.load_session(self.session_id)
+            if thread_data:
+                try:
+                    self.thread = await self.agent_client.deserialize_thread(thread_data)
+                    logger.info(f"Resumed session {self.session_id} with saved thread")
+                except Exception as e:
+                    logger.warning(f"Failed to deserialize thread: {e}, creating new thread")
+                    self.thread = self.agent_client.get_new_thread()
+            else:
+                self.thread = self.agent_client.get_new_thread()
+        else:
+            self.thread = self.agent_client.get_new_thread()
 
     def show_welcome(self):
         """Display welcome message and instructions."""
@@ -51,7 +63,6 @@ Commands:
   • Just chat naturally - ask me to analyze or organize screenshots
   • [bold]/help[/bold] - Show this help message
   • [bold]/clear[/bold] - Clear conversation history
-  • [bold]/stats[/bold] - Show organization statistics
   • [bold]/quit[/bold] or [bold]/exit[/bold] - Exit the program
 
 Examples:
@@ -69,7 +80,6 @@ Examples:
 
 [bold cyan]/help[/bold cyan] - Show this help message
 [bold cyan]/clear[/bold cyan] - Clear conversation history and start fresh
-[bold cyan]/stats[/bold cyan] - Show organization statistics (file counts per category)
 [bold cyan]/quit, /exit[/bold cyan] - Exit the program
 
 [bold]Usage Tips:[/bold]
@@ -85,30 +95,7 @@ code, errors, documentation, design, communication, memes, other
         self.console.print(Panel(help_text, title="Help", border_style="cyan"))
         self.console.print()
 
-    def show_stats(self):
-        """Display organization statistics."""
-        try:
-            stats = self.chat_client.tool_handlers.file_organizer.get_statistics()
-            
-            if not stats:
-                self.console.print("[yellow]No organized files yet.[/yellow]\n")
-                return
-
-            self.console.print("\n[bold cyan]Organization Statistics:[/bold cyan]")
-            total = sum(stats.values())
-            
-            for category, count in sorted(stats.items(), key=lambda x: x[1], reverse=True):
-                bar_length = int((count / max(1, total)) * 30)
-                bar = "█" * bar_length
-                self.console.print(f"  {category:15} {count:4} {bar}")
-            
-            self.console.print(f"\n  [bold]Total: {total}[/bold]\n")
-            
-        except Exception as e:
-            self.console.print(f"[red]Error getting statistics: {e}[/red]\n")
-            logger.error(f"Error getting stats: {e}")
-
-    def handle_command(self, user_input: str) -> bool:
+    async def handle_command(self, user_input: str) -> bool:
         """Handle special commands.
 
         Args:
@@ -128,19 +115,19 @@ code, errors, documentation, design, communication, memes, other
             return True
 
         if command == "/clear":
-            self.chat_client.reset_conversation()
+            # Create new thread and clear session
+            self.thread = self.agent_client.get_new_thread()
             self.session_manager.clear_session(self.session_id)
             self.console.print("[green]✓ Conversation history cleared[/green]\n")
             return True
 
-        if command == "/stats":
-            self.show_stats()
-            return True
-
         return False
 
-    def chat_loop(self):
-        """Main interactive chat loop."""
+    async def chat_loop(self):
+        """Main interactive chat loop (async)."""
+        # Initialize thread
+        await self.initialize_thread()
+
         self.show_welcome()
 
         try:
@@ -159,30 +146,23 @@ code, errors, documentation, design, communication, memes, other
 
                 # Handle commands
                 if user_input.startswith("/"):
-                    if self.handle_command(user_input):
+                    if await self.handle_command(user_input):
                         if user_input.strip().lower() in ["/quit", "/exit"]:
                             break
                         continue
 
-                # Send to chat client
+                # Send to agent client
                 self.console.print()
                 with self.console.status("[cyan]Thinking...[/cyan]", spinner="dots"):
-                    response = self.chat_client.chat(user_input)
+                    response = await self.agent_client.chat(user_input, thread=self.thread)
 
                 # Display response
                 self.console.print("[bold blue]Assistant[/bold blue]")
-                self.chat_client.display_response(response)
+                self.agent_client.display_response(response)
 
                 # Save session after each exchange
-                self.session_manager.save_session(
-                    self.session_id,
-                    self.chat_client.conversation_history
-                )
-
-                # Check if we should truncate context
-                if self.chat_client.should_truncate_context():
-                    logger.info("Context length exceeded, truncating")
-                    self.chat_client.truncate_context()
+                thread_data = await self.agent_client.serialize_thread(self.thread)
+                self.session_manager.save_session(self.session_id, thread_data)
 
         except KeyboardInterrupt:
             self.console.print("\n\n[cyan]Interrupted. Goodbye! 👋[/cyan]")
@@ -191,11 +171,12 @@ code, errors, documentation, design, communication, memes, other
             logger.error(f"Chat loop error: {e}", exc_info=True)
         finally:
             # Save final session state
-            self.session_manager.save_session(
-                self.session_id,
-                self.chat_client.conversation_history
-            )
-            logger.info("Session saved before exit")
+            try:
+                thread_data = await self.agent_client.serialize_thread(self.thread)
+                self.session_manager.save_session(self.session_id, thread_data)
+                logger.info("Session saved before exit")
+            except Exception as e:
+                logger.error(f"Failed to save session on exit: {e}")
 
 
 @click.command()
@@ -217,14 +198,18 @@ def main(session: Optional[str], config: Optional[Path], debug: bool):
     """Interactive AI assistant for organizing screenshots.
 
     The assistant uses local AI models (OCR + Vision) to analyze screenshots
-    and Azure AI Foundry to orchestrate the organization process.
+    and Microsoft Agent Framework with Azure AI to orchestrate the organization process.
 
     Required environment variables:
-      AZURE_AI_CHAT_ENDPOINT - Your Azure AI Foundry project endpoint
+      AZURE_AI_CHAT_ENDPOINT - Your Azure endpoint (Foundry or Azure OpenAI)
       AZURE_AI_CHAT_KEY - Your API key (or use 'az login' for CLI auth)
-      AZURE_AI_MODEL_DEPLOYMENT - Your deployed model name (e.g., gpt-4)
+      AZURE_AI_MODEL_DEPLOYMENT - Your deployed model name (e.g., gpt-4o)
 
-    Get credentials from: https://ai.azure.com
+    Supported endpoints:
+      - AI Foundry: https://xxx.services.ai.azure.com/api/projects/xxx
+      - Azure OpenAI: https://xxx.cognitiveservices.azure.com
+
+    Get credentials from: https://ai.azure.com or Azure Portal
     """
     # Setup logging
     log_level = "DEBUG" if debug else "INFO"
@@ -242,21 +227,25 @@ def main(session: Optional[str], config: Optional[Path], debug: bool):
     endpoint = os.environ.get("AZURE_AI_CHAT_ENDPOINT")
     if not endpoint:
         console = Console()
-        console.print("[red]Error: Azure AI Foundry credentials not configured.[/red]")
+        console.print("[red]Error: Azure credentials not configured.[/red]")
         console.print()
         console.print("Required environment variables:")
-        console.print("  • AZURE_AI_CHAT_ENDPOINT - Your project endpoint")
+        console.print("  • AZURE_AI_CHAT_ENDPOINT - Your Azure endpoint")
         console.print("  • AZURE_AI_CHAT_KEY - Your API key (or use 'az login')")
-        console.print("  • AZURE_AI_MODEL_DEPLOYMENT - Your model name (e.g., gpt-4)")
+        console.print("  • AZURE_AI_MODEL_DEPLOYMENT - Your model name (e.g., gpt-4o)")
         console.print()
-        console.print("Get credentials from: [cyan]https://ai.azure.com[/cyan]")
+        console.print("Supported endpoints:")
+        console.print("  - AI Foundry: https://xxx.services.ai.azure.com/api/projects/xxx")
+        console.print("  - Azure OpenAI: https://xxx.cognitiveservices.azure.com")
+        console.print()
+        console.print("Get credentials from: [cyan]https://ai.azure.com[/cyan] or Azure Portal")
         console.print("See .env.example for setup instructions")
         sys.exit(1)
 
     # Create and run CLI
     try:
         cli = CLIInterface(session_id=session)
-        cli.chat_loop()
+        asyncio.run(cli.chat_loop())
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
         console = Console()

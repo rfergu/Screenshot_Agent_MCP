@@ -4,7 +4,7 @@
 Screenshot Organizer with Local AI Processing
 
 ## Feature Description
-A terminal-based tool that intelligently organizes screenshots using local AI models (OCR and Phi-3 Vision), with Azure AI (Foundry or Azure OpenAI) orchestrating the conversation through MCP protocol. The system prioritizes local processing to maintain privacy and minimize costs.
+A terminal-based tool that intelligently organizes screenshots using local AI models (OCR and Phi-3 Vision), with Azure AI (Foundry or Azure OpenAI) orchestrating the conversation through Microsoft Agent Framework. The system uses embedded tool functions for screenshot processing and prioritizes local processing to maintain privacy and minimize costs.
 
 ## User Stories
 
@@ -97,13 +97,14 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
   - communication: Contains "sent", "replied", "message", "@"
   - other: Default if no patterns match
 
-### FR-004: MCP Server Implementation
-- Implement three MCP tools:
-  1. analyze_screenshot(path, force_vision=False)
-  2. batch_process(folder)
-  3. organize_file(source, category, new_name)
-- Follow MCP protocol specifications
-- Return structured JSON responses
+### FR-004: Tool Function Implementation
+- Implement three tool functions as standalone Python functions with Pydantic type annotations:
+  1. `analyze_screenshot(path, force_vision=False)` - Analyze single screenshot
+  2. `batch_process(folder, recursive, max_files, organize)` - Process folder of screenshots
+  3. `organize_file(source_path, category, new_filename, archive_original, base_path)` - Organize and rename file
+- Use `Annotated[type, Field(description="...")]` pattern for automatic tool discovery
+- Tools embedded directly in Agent Framework (no separate MCP server process)
+- Return structured dictionary responses
 
 ### FR-005: File Management
 - Create organized folder structure
@@ -112,14 +113,15 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 - Handle duplicate filenames gracefully
 
 ### FR-006: Azure AI Integration (Foundry or Azure OpenAI)
+- Use **Microsoft Agent Framework** for AI orchestration
 - Support **either** Azure AI Foundry serverless endpoints **or** Azure OpenAI resource endpoints
-- Automatically detect endpoint type based on URL format:
+- Automatically detect endpoint type via `AzureOpenAIChatClient`:
   - AI Foundry: `https://xxx.services.ai.azure.com/api/projects/xxx`
   - Azure OpenAI: `https://xxx.cognitiveservices.azure.com`
 - Use Azure models (GPT-4, GPT-4o, etc.) for natural language understanding
-- Orchestrate MCP tool calls based on user intent
-- Provide conversational responses
-- Maintain session context
+- Agent Framework automatically orchestrates tool calls based on user intent
+- Provide conversational responses via `ChatAgent`
+- Maintain session context using `AgentThread` serialization
 - Authentication support:
   - Azure OpenAI: API key required
   - AI Foundry: API key or Azure CLI authentication (DefaultAzureCredential)
@@ -135,6 +137,22 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 - Count files processed by each method
 - Calculate and display aggregate statistics
 - Show cost savings from local processing
+
+### FR-009: Microsoft Agent Framework Implementation
+- Use `agent-framework` Python package (>=0.1.0)
+- Create `ChatAgent` with embedded tool functions (not separate MCP server)
+- Use `AzureOpenAIChatClient` for dual endpoint support (Foundry + Azure OpenAI)
+- Implement async conversation pattern with `await agent.run()`
+- Use `AgentThread` for conversation state management:
+  - `agent.get_new_thread()` for new conversations
+  - `await thread.serialize()` for session persistence
+  - `await agent.deserialize_thread()` for session restoration
+- Tools provided as list to `ChatAgent(tools=[analyze_screenshot, batch_process, organize_file])`
+- Agent Framework handles:
+  - Automatic tool discovery via type annotations
+  - Tool call orchestration (no manual loops)
+  - Message formatting and API calls
+  - Thread state management
 
 ## Non-Functional Requirements
 
@@ -161,14 +179,17 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 - Consistent file organization
 
 ## Review & Acceptance Checklist
-- [ ] All user stories have clear acceptance criteria
-- [ ] Functional requirements are testable
-- [ ] Non-functional requirements are measurable
-- [ ] Privacy requirements are explicitly stated
-- [ ] Performance targets are defined
-- [ ] Error handling is comprehensive
-- [ ] File organization structure is clear
-- [ ] Integration points are well-defined
+- [x] All user stories have clear acceptance criteria
+- [x] Functional requirements are testable
+- [x] Non-functional requirements are measurable
+- [x] Privacy requirements are explicitly stated
+- [x] Performance targets are defined
+- [x] Error handling is comprehensive
+- [x] File organization structure is clear
+- [x] Integration points are well-defined
+- [x] Microsoft Agent Framework integration specified
+- [x] Tool function architecture defined
+- [x] Dual Azure endpoint support documented
 
 ## Open Questions & Clarifications
 
@@ -184,6 +205,15 @@ A terminal-based tool that intelligently organizes screenshots using local AI mo
 
 4. **Q: How to handle very large images?**
    A: Resize for processing while maintaining aspect ratio
+
+5. **Q: Why use Microsoft Agent Framework instead of standalone MCP server?**
+   A: Embedded tools provide:
+   - Simpler architecture (no separate server process)
+   - Lower latency (direct function calls, no IPC overhead)
+   - Easier testing and debugging
+   - Built-in thread persistence and tool orchestration
+   - Still demonstrates clear tool abstraction through function interface
+   - Future-ready for multi-agent patterns
 
 ### Pending Clarifications
 - Exact format for renamed files (timestamp prefix?)

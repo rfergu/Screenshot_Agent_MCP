@@ -630,3 +630,84 @@ Be conversational, helpful, and efficient. Focus on making screenshot organizati
             # Keep only the last N exchanges
             self.conversation_history = self.conversation_history[-(keep_recent * 2):]
             logger.info(f"Truncated conversation history to {len(self.conversation_history)} messages")
+
+    def serialize_conversation_history(self) -> List[Dict[str, Any]]:
+        """Convert conversation history to JSON-serializable format.
+
+        Returns:
+            List of message dictionaries that can be JSON serialized.
+        """
+        serialized = []
+        for msg in self.conversation_history:
+            msg_dict = {"type": type(msg).__name__}
+
+            if isinstance(msg, SystemMessage):
+                msg_dict["content"] = msg.content
+            elif isinstance(msg, UserMessage):
+                msg_dict["content"] = msg.content
+            elif isinstance(msg, AssistantMessage):
+                if hasattr(msg, "content") and msg.content:
+                    msg_dict["content"] = msg.content
+                if hasattr(msg, "tool_calls") and msg.tool_calls:
+                    msg_dict["tool_calls"] = [
+                        {
+                            "id": tc.id,
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments
+                            }
+                        }
+                        for tc in msg.tool_calls
+                    ]
+            elif isinstance(msg, ToolMessage):
+                msg_dict["content"] = msg.content
+                msg_dict["tool_call_id"] = msg.tool_call_id
+
+            serialized.append(msg_dict)
+
+        return serialized
+
+    def deserialize_conversation_history(self, serialized: List[Dict[str, Any]]):
+        """Restore conversation history from JSON-serializable format.
+
+        Args:
+            serialized: List of message dictionaries from JSON.
+        """
+        from azure.ai.inference.models import ChatCompletionsToolCall, FunctionCall
+
+        self.conversation_history = []
+        for msg_dict in serialized:
+            msg_type = msg_dict.get("type")
+
+            if msg_type == "SystemMessage":
+                self.conversation_history.append(SystemMessage(content=msg_dict["content"]))
+            elif msg_type == "UserMessage":
+                self.conversation_history.append(UserMessage(content=msg_dict["content"]))
+            elif msg_type == "AssistantMessage":
+                content = msg_dict.get("content")
+                tool_calls_data = msg_dict.get("tool_calls")
+
+                if tool_calls_data:
+                    # Reconstruct tool calls
+                    tool_calls = [
+                        ChatCompletionsToolCall(
+                            id=tc["id"],
+                            function=FunctionCall(
+                                name=tc["function"]["name"],
+                                arguments=tc["function"]["arguments"]
+                            )
+                        )
+                        for tc in tool_calls_data
+                    ]
+                    self.conversation_history.append(AssistantMessage(tool_calls=tool_calls))
+                else:
+                    self.conversation_history.append(AssistantMessage(content=content))
+            elif msg_type == "ToolMessage":
+                self.conversation_history.append(
+                    ToolMessage(
+                        content=msg_dict["content"],
+                        tool_call_id=msg_dict["tool_call_id"]
+                    )
+                )
+
+        logger.info(f"Deserialized {len(self.conversation_history)} messages")
