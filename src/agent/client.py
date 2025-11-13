@@ -216,11 +216,21 @@ class AgentClient:
                         try:
                             import json
                             result_dict = json.loads(tool_result) if isinstance(tool_result, str) else tool_result
+
+                            # Check if this is analyze_screenshot result with processing_method
+                            processing_indicator = ""
+                            if isinstance(result_dict, dict) and 'processing_method' in result_dict:
+                                method = result_dict['processing_method']
+                                if method == 'ocr':
+                                    processing_indicator = "✅ **Local OCR processing completed**\n\n"
+                                elif method == 'vision':
+                                    processing_indicator = "🔍 **Cloud vision analysis completed**\n\n"
+
                             formatted_result = json.dumps(result_dict, indent=2)
                             # Truncate if too long
                             if len(formatted_result) > 800:
                                 formatted_result = formatted_result[:800] + "\n... (truncated)"
-                            response_parts.append(f"📊 **Tool Result:**\n```json\n{formatted_result}\n```")
+                            response_parts.append(f"{processing_indicator}📊 **Tool Result:**\n```json\n{formatted_result}\n```")
                         except:
                             # Not JSON or formatting failed, show as-is
                             result_str = str(tool_result)
