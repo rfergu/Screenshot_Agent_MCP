@@ -234,7 +234,7 @@ code, errors, documentation, design, communication, memes, other
 @click.option(
     "--local",
     is_flag=True,
-    help="Use local testing mode (Phi-4-mini, no tools). Default is remote mode (GPT-4, full capabilities)."
+    help="Use local testing mode (Phi-4-mini, no tools) to test Agent Framework setup. Default is remote mode (GPT-4o, full MCP demo)."
 )
 @click.option(
     "--port",
