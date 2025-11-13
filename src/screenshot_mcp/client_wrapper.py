@@ -67,8 +67,8 @@ class MCPClientWrapper:
         """Start MCP server and create client session."""
         logger.info("Starting MCP server subprocess...")
 
-        # Get project root
-        project_root = Path(__file__).parent.parent
+        # Get project root (go up from client_wrapper.py -> screenshot_mcp -> src -> project_root)
+        project_root = Path(__file__).parent.parent.parent
 
         # Configure MCP server parameters
         # Pass current environment to subprocess so it has access to Azure credentials
