@@ -339,5 +339,5 @@ Local mode intentionally does NOT use tools:
 
 - **For Testing:** Use local mode to iterate on system prompts and conversation flow
 - **For Production:** Always use remote mode for actual screenshot organization
-- **For Privacy:** Remote mode can use local Phi-3 Vision MLX as fallback (images stay local)
+- **For Privacy:** Remote mode can use Azure GPT-4o Vision as fallback (images stay local)
 - **Default:** Remote mode is the default for good reason - it actually works!

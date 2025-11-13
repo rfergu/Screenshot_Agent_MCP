@@ -7,8 +7,8 @@
 python src/cli_interface.py
 
 # Or force a specific mode with CLI flag
-python src/cli_interface.py --mode local   # Local (Phi-3)
-python src/cli_interface.py --mode remote  # Remote (Azure OpenAI)
+python src/cli_interface.py --local   # Local (Phi-4-mini, testing only)
+python src/cli_interface.py           # Remote (Azure OpenAI, production)
 
 # Compare both modes side-by-side
 python scripts/demo_comparison.py
@@ -25,14 +25,14 @@ python scripts/demo_comparison.py
 
 | Feature | Local Mode | Remote Mode |
 |---------|------------|-------------|
-| **Command** | `--mode local` | `--mode remote` (default) |
-| **Chat Model** | Phi-4 (AI Foundry) | GPT-4o (Azure OpenAI) |
-| **Vision Model** | Phi-3 Vision MLX | GPT-4o (same) |
+| **Command** | `--local` | (default) |
+| **Purpose** | Testing conversation flow | Production demo |
+| **Chat Model** | Phi-4-mini (AI Foundry) | GPT-4o (Azure OpenAI) |
+| **Vision Model** | None (testing only) | GPT-4o Vision |
+| **MCP Tools** | None (no file operations) | Full (7 tools) |
 | **Cost** | $0 per query | ~$0.01-0.05 per query |
-| **Privacy** | Complete (on-device) | Cloud processed |
-| **Setup** | `foundry run phi-4` + pip packages | Azure credentials |
-| **First Run** | Fast (if server running) | Fast |
-| **Requirements** | M1/M2/M3 Mac, ~8GB RAM | Internet, API key |
+| **Setup** | `foundry service start` | Azure credentials |
+| **Requirements** | AI Foundry CLI | Internet, API key |
 
 ## Setup
 
@@ -41,17 +41,14 @@ python scripts/demo_comparison.py
 # Install AI Foundry CLI
 brew install azure/ai-foundry/foundry
 
-# Download Phi-4
-foundry model get phi-4
+# Download Phi-4-mini
+foundry model get phi-4-mini
 
-# Install Python packages
-pip install phi-3-vision-mlx azure-ai-inference
+# Start inference server
+foundry service start
 
-# Start inference server (in separate terminal)
-foundry run phi-4
-
-# Run screenshot organizer
-python src/cli_interface.py --mode local
+# Run screenshot organizer (testing mode only - no file operations)
+python src/cli_interface.py --local
 ```
 
 ### Remote Mode Setup
@@ -72,12 +69,14 @@ When you run without `--mode`, you'll see:
 │ Select operation mode: │
 ╰────────────────────────╯
 
-1. Local Mode (Phi-3 Vision MLX)
-   • Fully on-device, complete privacy
+1. Local Mode (Testing Only)
+   • Tests Agent Framework conversation flow
+   • No file operations, no tools
    • Zero cost per query
 
-2. Remote Mode (Azure OpenAI)
-   • Cloud-powered, more capable
+2. Remote Mode (Production Demo)
+   • Full MCP + Agent Framework demo
+   • GPT-4o with 7 MCP tools
    • Requires: Azure credentials
 
 Choose mode [1/2] (2): _

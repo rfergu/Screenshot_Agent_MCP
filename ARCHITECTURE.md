@@ -252,7 +252,7 @@ Low-level "dumb" tools that perform file operations and return facts.
 - Checks for sufficient text (>10 words)
 
 **Vision Processor** (`src/processors/vision_processor.py`)
-- Uses Phi-3-Vision MLX model for image understanding
+- Uses Azure GPT-4o Vision model for image understanding
 - Slower (~2s) but handles images without text
 - Provides descriptions and categorization
 
@@ -374,7 +374,7 @@ CLIInterface
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
 │  │ OCR          │  │ Vision       │  │ Keyword      │         │
 │  │ Processor    │  │ Processor    │  │ Classifier   │         │
-│  │ (Tesseract)  │  │ (Phi-3 MLX)  │  │ (Patterns)   │         │
+│  │ (Tesseract)  │  │ (Azure GPT-4o Vision)  │  │ (Patterns)   │         │
 │  └──────────────┘  └──────────────┘  └──────────────┘         │
 │                                                                  │
 │  ┌──────────────┐  ┌──────────────┐                            │
@@ -738,12 +738,12 @@ screenshot-organizer/
 │   ├── screenshot_mcp_server.py       # MCP server
 │   ├── mcp_tools.py                   # MCP tool implementations
 │   │
-│   ├── phi3_chat_client.py            # Local Foundry chat client
+│   ├── local_foundry_chat_client.py            # Local Foundry chat client
 │   │
 │   ├── processors/
 │   │   ├── __init__.py
 │   │   ├── ocr_processor.py           # Tesseract OCR
-│   │   └── vision_processor.py        # Phi-3-Vision MLX
+│   │   └── vision_processor.py        # Azure GPT-4o Vision
 │   │
 │   ├── classifiers/
 │   │   ├── __init__.py
@@ -949,7 +949,7 @@ else:
 
 - **Azure OpenAI (GPT-4/GPT-4o)** - Agent intelligence, categorization, naming
 - **Microsoft Agent Framework** - AI agent orchestration
-- **Phi-3-Vision MLX** - Local vision model for image understanding
+- **Azure GPT-4o Vision** - Cloud vision model for image understanding
 - **Tesseract OCR** - Fast text extraction from screenshots
 
 ### Protocol & Communication

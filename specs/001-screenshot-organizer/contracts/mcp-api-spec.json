@@ -244,8 +244,8 @@
       },
       "vision_model_path": {
         "type": "string",
-        "description": "Path to Phi-3 Vision model",
-        "default": "~/.cache/phi3_vision"
+        "description": "Path to Azure GPT-4o Vision model",
+        "default": "~/.cache/vision_model"
       },
       "organized_base_path": {
         "type": "string",
@@ -284,7 +284,7 @@
     },
     {
       "code": "MODEL_NOT_LOADED",
-      "description": "Phi-3 Vision model is not available"
+      "description": "Azure GPT-4o Vision model is not available"
     },
     {
       "code": "PERMISSION_DENIED",

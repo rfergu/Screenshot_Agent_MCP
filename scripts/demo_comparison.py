@@ -2,7 +2,7 @@
 """Demo comparison utility showing local vs remote mode side-by-side.
 
 This script demonstrates the dual-mode capabilities of the screenshot organizer
-by running the same query through both local (Phi-3) and remote (Azure OpenAI)
+by running the same query through both local (Phi-4-mini) and remote (Azure OpenAI)
 modes and comparing results.
 """
 
@@ -49,7 +49,7 @@ async def run_query_comparison(query: str, show_latency: bool = True):
         table.add_column("Latency", style="yellow", width=10)
 
     # Run local mode
-    console.print("[bold green]🏠 Running in LOCAL mode (Phi-3)...[/bold green]")
+    console.print("[bold green]🏠 Running in LOCAL mode (Phi-4-mini)...[/bold green]")
     try:
         local_client = AgentClient(mode="local")
         local_thread = local_client.get_new_thread()
@@ -110,7 +110,7 @@ async def run_query_comparison(query: str, show_latency: bool = True):
     # Show full responses in panels
     console.print(Panel(
         local_response,
-        title="[bold green]🏠 Local Mode Response (Phi-3 Vision MLX)[/bold green]",
+        title="[bold green]🏠 Local Mode Response (Phi-4-mini - Testing Only)[/bold green]",
         border_style="green"
     ))
     console.print()
@@ -153,7 +153,7 @@ async def main():
     console.print()
     console.print(Panel.fit(
         "[bold cyan]Screenshot Organizer - Mode Comparison Demo[/bold cyan]\n\n"
-        "This demo compares LOCAL (Phi-3) vs REMOTE (Azure OpenAI) modes\n"
+        "This demo compares LOCAL (Phi-4-mini) vs REMOTE (Azure OpenAI) modes\n"
         "by running the same query through both and showing results side-by-side.",
         border_style="cyan"
     ))

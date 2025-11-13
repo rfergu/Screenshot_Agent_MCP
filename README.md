@@ -4,7 +4,7 @@ AI-powered screenshot organization demonstrating production AI agent development
 
 ## Features
 
-- **🔍 Smart Analysis**: Uses Tesseract OCR for fast text extraction, GPT-4 Vision or local Phi-3 Vision for image analysis
+- **🔍 Smart Analysis**: Uses Tesseract OCR for fast text extraction, GPT-4o Vision for image analysis
 - **📁 Automatic Organization**: Categorizes screenshots into code, errors, documentation, design, communication, memes, or other
 - **💬 Natural Language Interface**: Chat with GPT-4 to organize your screenshots conversationally
 - **⚡ Fast Processing**: OCR processes most screenshots in <50ms, vision model in <2s
@@ -161,7 +161,7 @@ organization:
   keep_originals: true  # Keep copies in _originals folder
 
 models:
-  phi3_vision:
+  vision:
     max_tokens: 200
     temperature: 0.3
 
@@ -221,7 +221,7 @@ File System
 
 4. **Processing Components**:
    - **OCR**: Fast text extraction using Tesseract (~50ms)
-   - **Vision**: Phi-3 Vision MLX for image understanding (~2s)
+   - **Vision**: Azure GPT-4o Vision for image understanding (~2s)
    - **Keyword Classifier**: Fallback pattern matching
 
 **All file system operations go through the MCP protocol** - demonstrating both Agent Framework capabilities and MCP standardization.
@@ -304,15 +304,6 @@ Error: Tesseract not found
 ```
 **Solution**: Install Tesseract OCR (see Installation section)
 
-### Phi-3 Vision model not loading
-```
-Error: Failed to import phi-3-vision-mlx
-```
-**Solution**: This is macOS-specific. On other platforms, the vision model will use a placeholder. For full functionality on macOS:
-```bash
-pip install phi-3-vision-mlx==0.1.0
-```
-
 ### OpenAI API errors
 ```
 Error: OpenAI API key not provided
@@ -336,7 +327,6 @@ Contributions welcome! Please read CONTRIBUTING.md for guidelines.
 ## Acknowledgments
 
 - Tesseract OCR for fast text extraction
-- Microsoft Phi-3 Vision for local image understanding
 - Microsoft Phi-4-mini for local testing capabilities
-- Azure OpenAI GPT-4 for production AI agent orchestration
+- Azure OpenAI GPT-4o for production AI agent orchestration and vision analysis
 - Microsoft Agent Framework for unified tool integration

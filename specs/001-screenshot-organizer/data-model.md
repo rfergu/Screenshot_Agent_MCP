@@ -36,7 +36,7 @@ class OCRResult:
 ```python
 @dataclass
 class VisionResult:
-    """Result from Phi-3 Vision processing"""
+    """Result from Azure GPT-4o Vision processing"""
     category: str
     description: str
     suggested_filename: str
@@ -167,7 +167,7 @@ processing:
     timeout_ms: int           # OCR timeout
     
   vision:
-    model_path: str           # Path to Phi-3 Vision model
+    model_path: str           # Path to Azure GPT-4o Vision model
     max_tokens: int          # Maximum tokens in response
     temperature: float       # Model temperature
     timeout_ms: int         # Vision processing timeout

@@ -51,7 +51,7 @@ This document breaks down the implementation into executable tasks organized by 
 
 ### Task 2.2: Vision Processor
 **File:** `src/processors/vision_processor.py`
-**Description:** Implement Phi-3 Vision MLX integration
+**Description:** Implement Azure GPT-4o Vision integration
 **Dependencies:** Task 1.2, Task 1.3
 **Actions:**
 1. Create VisionProcessor class

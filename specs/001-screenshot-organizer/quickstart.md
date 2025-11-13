@@ -68,10 +68,10 @@ cp .env.example .env
 
 See `.env.example` for detailed setup instructions.
 
-### 5. Download Phi-3 Vision Model (Optional)
+### 5. Download Azure GPT-4o Vision Model (Optional)
 The model will auto-download on first use (~8GB), but you can pre-download:
 ```bash
-python -c "from phi3v import Phi3Vision; model = Phi3Vision()"
+python -c "from azure_vision import AzureVisionProcessor; model = AzureVisionProcessor()"
 ```
 
 ## Quick Test
@@ -186,7 +186,7 @@ which tesseract  # Should show path
 **Solution:** Check internet connection and disk space (need 8GB)
 ```bash
 # Manual download
-curl -L [model-url] -o ~/.cache/phi3_vision/model.bin
+curl -L [model-url] -o ~/.cache/vision/model.bin
 ```
 
 ### Issue: "Azure AI Foundry credentials not configured"

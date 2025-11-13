@@ -268,7 +268,7 @@ tests/test_smoke_local.py        # Smoke tests for local mode
 **Status:** All major files traced
 
 Potentially orphaned:
-- `phi3_chat_client.py` - Traces to FR-016 (local mode support)
+- `local_foundry_chat_client.py` - Traces to FR-016 (local mode support)
 - Legacy `agent_client.py` - Kept for backward compatibility during transition
 
 ### Spec Requirements Not Implemented

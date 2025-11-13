@@ -16,7 +16,7 @@ organization:
   keep_originals: true
 
 models:
-  phi3_vision:
+  vision:
     max_tokens: 200
     temperature: 0.3
 

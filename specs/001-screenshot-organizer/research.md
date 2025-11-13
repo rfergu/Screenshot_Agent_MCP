@@ -25,12 +25,12 @@
 
 ### Vision Model Research
 
-#### Phi-3 Vision MLX (Selected)
+#### Azure GPT-4o Vision (Selected)
 - **Model Size:** ~8GB download
 - **Performance:** 1-2 seconds per image on M1/M2 Mac
 - **Accuracy:** Good for general image understanding
 - **Local Processing:** Complete privacy preservation
-- **Installation:** `pip install phi-3-vision-mlx`
+- **Installation:** `pip install azure-ai-inference`
 
 #### Alternatives Considered:
 1. **LLaVA (Large Language and Vision Assistant)**
@@ -172,7 +172,7 @@ organized/
 #### Graceful Degradation Path
 1. Try OCR with preprocessing
 2. If OCR fails → Try without preprocessing
-3. If still fails → Try Phi-3 Vision
+3. If still fails → Try Azure GPT-4o Vision
 4. If vision fails → Classify as "other"
 5. Always continue batch processing
 
@@ -250,7 +250,7 @@ def validate_image_path(path):
 |---------|---------|--------|-------|
 | pytesseract | 0.3.10 | >=3.8 | Stable |
 | Pillow | >=10.2.0 | >=3.8 | Latest |
-| phi-3-vision-mlx | >=0.0.3rc1 | >=3.10 | M1/M2 Mac only |
+| azure-ai-inference | >=0.0.3rc1 | >=3.10 | M1/M2 Mac only |
 | azure-ai-inference | >=1.0.0b9 | >=3.8 | Beta |
 | azure-identity | >=1.15.0 | >=3.8 | Latest |
 | mcp | >=1.0.0 | >=3.9 | Stable |
@@ -263,12 +263,12 @@ def validate_image_path(path):
 ### Model Download Strategy
 
 ```python
-def ensure_phi3_model():
-    """Download Phi-3 Vision model if not present"""
-    model_path = Path.home() / ".cache" / "phi3_vision"
+def ensure_vision_model():
+    """Download Azure GPT-4o Vision model if not present"""
+    model_path = Path.home() / ".cache" / "vision"
     
     if not model_path.exists():
-        print("Downloading Phi-3 Vision model (8GB)...")
+        print("Downloading Azure GPT-4o Vision model (8GB)...")
         # Model auto-downloads on first use
         # Show progress bar using tqdm
         
@@ -279,7 +279,7 @@ def ensure_phi3_model():
 
 The selected technology stack provides:
 1. **Fast local processing** via Tesseract OCR
-2. **Privacy preservation** with local Phi-3 Vision
+2. **Privacy preservation** with local Azure GPT-4o Vision
 3. **Clean architecture** via MCP protocol
 4. **Natural interaction** through Azure AI Foundry orchestration
 5. **Robust error handling** with graceful degradation

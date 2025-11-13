@@ -32,7 +32,7 @@ This plan details the technical implementation of the Screenshot Organizer with 
 │          Processing Layer                            │
 │  ┌─────────────────┐    ┌─────────────────────┐    │
 │  │  OCR Module     │    │  Vision Module      │    │
-│  │  (Tesseract)    │    │  (Phi-3 Vision)    │    │
+│  │  (Tesseract)    │    │  (Azure GPT-4o Vision)    │    │
 │  └─────────────────┘    └─────────────────────┘    │
 └───────────────────────────────────────────────────────┘
 ```
@@ -55,7 +55,7 @@ azure-identity>=1.15.0        # Azure authentication
 mcp>=1.0.0                    # Model Context Protocol
 pytesseract==0.3.10           # OCR processing
 Pillow>=10.2.0                # Image handling
-phi-3-vision-mlx>=0.0.3rc1    # Local vision model
+azure-ai-inference>=0.0.3rc1    # Local vision model
 python-dotenv>=1.0.0          # Environment management
 rich>=13.7.0                  # Terminal UI formatting
 click>=8.1.7                  # CLI framework
@@ -82,7 +82,7 @@ screenshot-organizer/
 │   ├── processors/
 │   │   ├── __init__.py
 │   │   ├── ocr_processor.py       # Tesseract OCR wrapper
-│   │   └── vision_processor.py    # Phi-3 Vision wrapper
+│   │   └── vision_processor.py    # Azure GPT-4o Vision wrapper
 │   ├── classifiers/
 │   │   ├── __init__.py
 │   │   └── keyword_classifier.py  # Rule-based classification
@@ -172,13 +172,13 @@ class OCRProcessor:
 ### 3. Vision Processor (`processors/vision_processor.py`)
 
 ```python
-from phi3v import Phi3Vision
+from azure_vision import AzureVisionProcessor
 from PIL import Image
 import json
 from typing import Dict, Any
 
 class VisionProcessor:
-    """Handles vision model processing using Phi-3 Vision MLX"""
+    """Handles vision model processing using Azure GPT-4o Vision"""
     
     def __init__(self):
         self.model = None
@@ -193,7 +193,7 @@ class VisionProcessor:
     def ensure_model_loaded(self):
         """Lazy load model on first use"""
         if self.model is None:
-            self.model = Phi3Vision()
+            self.model = AzureVisionProcessor()
             
     def process(self, image_path: str) -> Dict[str, Any]:
         """Process image using vision model"""
@@ -292,7 +292,7 @@ organization:
   keep_originals: true
   
 models:
-  phi3_vision:
+  vision:
     max_tokens: 200
     temperature: 0.3
   
@@ -309,7 +309,7 @@ api:
 5. **MCP Protocol Errors**: Graceful degradation to direct function calls
 
 ### Performance Optimizations
-1. **Lazy Loading**: Load Phi-3 Vision model only when needed
+1. **Lazy Loading**: Load Azure GPT-4o Vision model only when needed
 2. **Image Preprocessing**: Resize large images before processing
 3. **Caching**: Cache classification results for duplicate images
 4. **Batch Processing**: Process multiple OCR requests in parallel
@@ -339,7 +339,7 @@ api:
 
 #### First-Time Setup
 1. Install Tesseract OCR system dependency
-2. Download Phi-3 Vision model (~8GB)
+2. Download Azure GPT-4o Vision model (~8GB)
 3. Configure API keys in .env file
 4. Create organized folder structure
 
@@ -351,7 +351,7 @@ AZURE_AI_CHAT_KEY=your-api-key  # Or use 'az login' for CLI auth
 AZURE_AI_MODEL_DEPLOYMENT=gpt-4
 MCP_SERVER_PORT=8080
 TESSERACT_PATH=/usr/local/bin/tesseract
-PHI3_MODEL_PATH=~/.cache/phi3_vision
+VISION_MODEL_PATH=~/.cache/vision
 LOG_LEVEL=INFO
 ```
 

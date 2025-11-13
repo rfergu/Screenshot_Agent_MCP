@@ -5,7 +5,7 @@ Complete installation instructions for Screenshot Organizer on different platfor
 ## System Requirements
 
 - **Python**: 3.11 or higher
-- **RAM**: 4GB minimum, 8GB recommended (for Phi-3 Vision model)
+- **RAM**: 4GB minimum, 8GB recommended (for Azure GPT-4o Vision model)
 - **Disk Space**: ~10GB (includes model downloads)
 - **OS**: macOS, Linux, or Windows
 
@@ -130,11 +130,10 @@ pytest tests/test_config.py -v
 
 ### macOS with Apple Silicon
 
-For best performance with Phi-3 Vision MLX:
+For best performance with Azure GPT-4o Vision MLX:
 
 ```bash
 # Install MLX-specific dependency
-pip install phi-3-vision-mlx==0.1.0
 ```
 
 This enables hardware-accelerated vision processing on M1/M2/M3 Macs.
@@ -222,7 +221,6 @@ deactivate
 rm -rf .venv
 
 # Remove downloaded models (optional)
-rm -rf ~/.cache/huggingface/hub/models--phi3-vision
 
 # Remove session data (optional)
 rm -rf ~/.screenshot_organizer/
