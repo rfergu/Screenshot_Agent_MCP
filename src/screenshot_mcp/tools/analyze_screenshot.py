@@ -39,9 +39,29 @@ def analyze_screenshot(
         - success: Whether analysis succeeded
         - error: Error message if failed (None if successful)
     """
-    # Normalize path by removing shell escape characters
+    # Normalize path by handling shell escapes
     normalized_path = file_path.replace('\\ ', ' ')  # Handle escaped spaces from shell
     path_obj = Path(normalized_path).expanduser()
+
+    # macOS uses Unicode narrow no-break space (U+202F) before AM/PM in screenshot filenames
+    # Try both variations: with regular spaces and with U+202F before AM/PM
+    if not path_obj.exists():
+        dir_path = path_obj.parent
+        filename = path_obj.name
+
+        # Try replacing space before AM/PM with U+202F (macOS default)
+        import re
+        unicode_filename = re.sub(r' (AM|PM)', '\u202f\\1', filename)
+        unicode_path_obj = dir_path / unicode_filename
+        if unicode_path_obj.exists():
+            path_obj = unicode_path_obj
+        else:
+            # Also try the reverse: U+202F before AM/PM -> regular space
+            regular_filename = re.sub('\u202f(AM|PM)', r' \1', filename)
+            regular_path_obj = dir_path / regular_filename
+            if regular_path_obj.exists():
+                path_obj = regular_path_obj
+
     if not path_obj.exists():
         raise FileNotFoundError(f"Screenshot file not found: {normalized_path}")
 

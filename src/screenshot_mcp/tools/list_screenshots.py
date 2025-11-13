@@ -53,9 +53,15 @@ def list_screenshots(
     for file_path in files:
         try:
             stat = file_path.stat()
+            # Normalize path - replace Unicode narrow no-break space (U+202F) before AM/PM with regular space
+            # macOS uses U+202F before AM/PM in screenshot filenames which can confuse AI agents
+            import re
+            normalized_path = re.sub('\u202f(AM|PM)', r' \1', str(file_path))
+            normalized_filename = re.sub('\u202f(AM|PM)', r' \1', file_path.name)
+
             file_list.append({
-                "path": str(file_path),
-                "filename": file_path.name,
+                "path": normalized_path,
+                "filename": normalized_filename,
                 "size_bytes": stat.st_size,
                 "modified_time": datetime.fromtimestamp(stat.st_mtime).isoformat()
             })

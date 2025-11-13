@@ -39,11 +39,31 @@ def move_screenshot(
         - success: Whether operation succeeded
         - error: Error message if failed (None if successful)
     """
-    # Normalize paths by removing shell escape characters
+    # Normalize paths by handling shell escapes
     normalized_source = source_path.replace('\\ ', ' ')  # Handle escaped spaces from shell
     normalized_dest = dest_folder.replace('\\ ', ' ')  # Handle escaped spaces from shell
 
     source = Path(normalized_source).expanduser()
+
+    # macOS uses Unicode narrow no-break space (U+202F) before AM/PM in screenshot filenames
+    # Try both variations: with regular spaces and with U+202F before AM/PM
+    if not source.exists():
+        import re
+        dir_path = source.parent
+        filename = source.name
+
+        # Try replacing space before AM/PM with U+202F (macOS default)
+        unicode_filename = re.sub(r' (AM|PM)', '\u202f\\1', filename)
+        unicode_path_obj = dir_path / unicode_filename
+        if unicode_path_obj.exists():
+            source = unicode_path_obj
+        else:
+            # Also try the reverse: U+202F before AM/PM -> regular space
+            regular_filename = re.sub('\u202f(AM|PM)', r' \1', filename)
+            regular_path_obj = dir_path / regular_filename
+            if regular_path_obj.exists():
+                source = regular_path_obj
+
     if not source.exists():
         raise FileNotFoundError(f"Source file not found: {normalized_source}")
 
