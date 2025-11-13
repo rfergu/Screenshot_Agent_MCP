@@ -79,8 +79,8 @@ class BatchProcessor:
         Returns:
             List of file paths matching supported extensions.
         """
-        folder_path = Path(folder_path)
-        
+        folder_path = Path(folder_path).expanduser()
+
         if not folder_path.exists():
             logger.error(f"Folder not found: {folder_path}")
             return []
