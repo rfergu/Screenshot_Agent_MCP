@@ -50,7 +50,7 @@ def init_local_client(local_config: Optional[dict] = None):
         Tuple of (chat_client, model_name, endpoint, auto_detected_flag)
     """
     try:
-        from phi3_chat_client import LocalFoundryChatClient
+        from local_foundry_chat_client import LocalFoundryChatClient
 
         # Determine endpoint with priority:
         # 1. Explicit endpoint from CLI (highest priority)

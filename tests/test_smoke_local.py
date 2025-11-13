@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from agent_framework._types import ChatMessage, Role
-from phi3_chat_client import LocalFoundryChatClient
+from local_foundry_chat_client import LocalFoundryChatClient
 
 # Note: Smoke tests use "auto" endpoint detection to test the real workflow
 

@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from agent_framework._types import ChatMessage, Role
 from azure.ai.inference.models import UserMessage, SystemMessage, AssistantMessage
-from phi3_chat_client import LocalFoundryChatClient
+from local_foundry_chat_client import LocalFoundryChatClient
 
 # Test endpoint to use (avoids auto-detection in tests)
 # Note: /v1 base - SDK appends /chat/completions → /v1/chat/completions
