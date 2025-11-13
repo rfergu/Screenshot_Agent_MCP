@@ -135,7 +135,7 @@ Categories must be one of: code, errors, documentation, design, communication, m
             parsed = self._parse_response(response_text)
 
             processing_time_ms = (time.perf_counter() - start_time) * 1000
-            logger.info(
+            logger.debug(
                 f"Azure vision processing complete: {parsed['category']} "
                 f"in {processing_time_ms:.2f}ms"
             )

@@ -45,7 +45,7 @@ def analyze_screenshot(
     if not path_obj.exists():
         raise FileNotFoundError(f"Screenshot file not found: {normalized_path}")
 
-    logger.info(f"Analyzing screenshot: {file_path} (force_vision={force_vision})")
+    logger.debug(f"Analyzing screenshot: {file_path} (force_vision={force_vision})")
     start_time = time.perf_counter()
 
     response = {
@@ -99,7 +99,7 @@ def analyze_screenshot(
 
         response["processing_time_ms"] = (time.perf_counter() - start_time) * 1000
 
-        logger.info(
+        logger.debug(
             f"Analysis complete: {path_obj.name} via {response['processing_method']} "
             f"in {response['processing_time_ms']:.2f}ms"
         )

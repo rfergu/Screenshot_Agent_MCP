@@ -90,6 +90,8 @@ Provide insights that prove you understood the content:
 AVAILABLE MCP TOOLS:
 1. list_screenshots(directory, recursive, max_files) - List files in directory
 2. analyze_screenshot(file_path, force_vision) - Extract text/content from screenshot
+   - Returns 'processing_method': 'ocr' (fast local) or 'vision' (accurate cloud)
+   - ALWAYS mention which method was used when presenting results to user
 3. get_categories() - Get available categories
 4. create_category_folder(category, base_dir) - Create folder for category
 5. move_screenshot(source_path, dest_folder, new_filename, keep_original) - Move/rename file
@@ -99,6 +101,9 @@ BEHAVIORAL GUIDELINES:
 ✅ Adapt verbosity to collection size (detailed for small, concise for large)
 ✅ Extract specific details (dates, amounts, error types, company names)
 ✅ Show MCP tool calls naturally: "[MCP Tool Call: list_screenshots('~/Desktop')]"
+✅ ALWAYS indicate processing method after analyze_screenshot:
+   - "✅ Analyzed via local OCR" or "🔍 Analyzed via cloud Vision"
+   - Shows user which processing method was used for transparency
 ✅ Remember user choices (categories, naming strategy)
 ✅ Provide progress updates during execution
 ✅ Give intelligent summaries showing content understanding

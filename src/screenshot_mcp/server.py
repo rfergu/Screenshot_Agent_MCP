@@ -231,7 +231,7 @@ class ScreenshotMCPServer:
             Returns:
                 List of TextContent responses.
             """
-            logger.info(f"Tool called: {name} with arguments: {arguments}")
+            logger.debug(f"Tool called: {name} with arguments: {arguments}")
 
             try:
                 result = None

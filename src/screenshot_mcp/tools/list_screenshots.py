@@ -43,7 +43,7 @@ def list_screenshots(
     if not dir_path.exists():
         raise FileNotFoundError(f"Directory not found: {normalized_dir}")
 
-    logger.info(f"Listing screenshots in {directory} (recursive={recursive})")
+    logger.debug(f"Listing screenshots in {directory} (recursive={recursive})")
 
     # Scan for files
     files = batch_processor.scan_folder(dir_path, recursive=recursive)
@@ -69,7 +69,7 @@ def list_screenshots(
     if max_files and len(file_list) > max_files:
         file_list = file_list[:max_files]
         truncated = True
-        logger.info(f"Truncated file list to {max_files} files (found {total_count})")
+        logger.debug(f"Truncated file list to {max_files} files (found {total_count})")
 
     return {
         "files": file_list,

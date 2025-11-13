@@ -68,7 +68,7 @@ class OCRProcessor:
             word_count = len(text.split())
             sufficient_text = word_count >= self.min_words_threshold
 
-            logger.info(
+            logger.debug(
                 f"OCR complete: {word_count} words in {processing_time_ms:.2f}ms "
                 f"(sufficient={sufficient_text})"
             )
